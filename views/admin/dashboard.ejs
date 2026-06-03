@@ -10,6 +10,7 @@
       <a href="/admin/classes/new" class="admin-nav-link">➕ Nowe zajęcia</a>
       <a href="/admin/consents" class="admin-nav-link">📋 Zgody (<%= typeof pendingConsents !== 'undefined' ? pendingConsents : 0 %>)</a>
       <a href="/calendar" class="admin-nav-link" target="_blank">📅 Kalendarz (widok)</a>
+      <a href="/admin/archive" class="admin-nav-link">🗄️ Archiwum</a>
     </nav>
     <div class="admin-sidebar-footer">
       <div class="admin-user-info">
@@ -105,6 +106,7 @@
                   const endTimeStr = endDate.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
                   const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
                   const isPast = date < new Date();
+                  const isEnded = endDate < new Date();
                   const adultTaken = cls.adult_taken || 0;
                   const childTaken = cls.child_taken || 0;
                   const adultPct = Math.round(adultTaken / cls.max_spots * 100);
@@ -145,8 +147,10 @@
                   <td>
                     <% if (cls.is_cancelled) { %>
                       <span class="badge badge--cancelled">Odwołane</span>
-                    <% } else if (isPast) { %>
+                    <% } else if (isEnded) { %>
                       <span class="badge badge--past">Zakończone</span>
+                    <% } else if (isPast && !isEnded) { %>
+                      <span class="badge badge--active" style="background-color: var(--primary);">W trakcie</span>
                     <% } else { %>
                       <span class="badge badge--active">Aktywne</span>
                     <% } %>
@@ -164,9 +168,9 @@
                       <button type="submit" class="btn btn--warning btn--xs">⚠️ Odwołaj</button>
                     </form>
                     <% } %>
-                    <form action="/admin/classes/<%= cls.id %>/delete" method="POST" style="display:inline;"
-                          data-confirm="Usunąć te zajęcia? Tej operacji nie można cofnąć.">
-                      <button type="submit" class="btn btn--danger btn--xs">🗑</button>
+                    <form action="/admin/classes/<%= cls.id %>/archive" method="POST" style="display:inline;"
+                          data-confirm="Przenieść te zajęcia do archiwum?">
+                      <button type="submit" class="btn btn--danger btn--xs">🗄️ Archiwizuj</button>
                     </form>
                   </td>
                 </tr>
