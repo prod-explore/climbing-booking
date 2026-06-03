@@ -1,0 +1,135 @@
+<%- include('../partials/head') %>
+
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <%- include('../partials/admin-sidebar-brand') %>
+    <nav class="admin-nav">
+      <a href="/admin" class="admin-nav-link">📊 Dashboard</a>
+      <a href="/admin/classes/new" class="admin-nav-link">➕ Nowe zajęcia</a>
+      <a href="/admin/consents" class="admin-nav-link">📋 Zgody (<%= typeof pendingConsents !== 'undefined' ? pendingConsents : 0 %>)</a>
+      <a href="/calendar" class="admin-nav-link" target="_blank">📅 Kalendarz (widok)</a>
+      <a href="/admin/archive" class="admin-nav-link active">🗄️ Archiwum</a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-info">
+        <span>👤 <%= user.email %></span>
+      </div>
+      <form action="/auth/logout" method="POST">
+        <button type="submit" class="btn btn--outline btn--sm btn--full">Wyloguj</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>Archiwum Zajęć</h1>
+      <div class="admin-topbar-actions">
+        <a href="/admin" class="btn btn--outline">← Powrót do Dashboardu</a>
+      </div>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="alert alert--success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert--error"><%= error %></div>
+    <% } %>
+
+    <!-- Tabela zarchiwizowanych zajęć -->
+    <div class="admin-section">
+      <h2>Zarchiwizowane zajęcia</h2>
+      <p style="color: #666; margin-bottom: 1rem;">Te zajęcia są ukryte z głównego kalendarza. Możesz przywrócić je, jeśli zarchiwizowano je przez pomyłkę.</p>
+
+      <% if (classes.length === 0) { %>
+        <div class="empty-state">
+          <p>Brak zajęć w archiwum.</p>
+        </div>
+      <% } else { %>
+        <div class="admin-table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Nazwa</th>
+                <th>Data i godzina</th>
+                <th>Typ</th>
+                <th>Dorośli</th>
+                <th>Dzieci</th>
+                <th>Status</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% classes.forEach(cls => { %>
+                <%
+                  const date = new Date(cls.start_time);
+                  const dateStr = date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+                  const endDate = new Date(date.getTime() + (cls.duration_min * 60000));
+                  const endTimeStr = endDate.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+                  const timeStr = date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+                  const isPast = date < new Date();
+                  const adultTaken = cls.adult_taken || 0;
+                  const childTaken = cls.child_taken || 0;
+                  const adultPct = Math.round(adultTaken / cls.max_spots * 100);
+                  const childPct = cls.max_child_spots > 0 ? Math.round(childTaken / cls.max_child_spots * 100) : 0;
+                %>
+                <tr class="row--past">
+                  <td>
+                    <strong><%= cls.name %></strong>
+                    <% if (cls.instructor) { %><br><small>👤 <%= cls.instructor %></small><% } %>
+                    <% if (cls.class_type === 'adult_and_child' && cls.child_instructor) { %><br><small>👦 <%= cls.child_instructor %></small><% } %>
+                  </td>
+                  <td><%= dateStr %><br><small><%= timeStr %> - <%= endTimeStr %></small></td>
+                  <td>
+                    <span class="badge-cat badge-cat--<%= cls.class_type === 'adult_and_child' ? 'mixed' : 'adults' %>">
+                      <%= cls.class_type === 'adult_and_child' ? 'D+Dz' : 'Dorośli' %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="mini-bar-wrap">
+                      <div class="mini-bar">
+                        <div class="mini-bar-fill" <%- `style="width:${adultPct}%"` %>></div>
+                      </div>
+                      <span><%= adultTaken %>/<%= cls.max_spots %></span>
+                    </div>
+                  </td>
+                  <td>
+                    <% if (cls.class_type === 'adult_and_child' && cls.max_child_spots > 0) { %>
+                    <div class="mini-bar-wrap">
+                      <div class="mini-bar">
+                        <div class="mini-bar-fill" <%- `style="width:${childPct}%"` %>></div>
+                      </div>
+                      <span><%= childTaken %>/<%= cls.max_child_spots %></span>
+                    </div>
+                    <% } else { %>
+                      <span style="color:#999;">—</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <span class="badge badge--past">Archiwum</span>
+                  </td>
+                  <td class="admin-actions">
+                    <a href="/admin/classes/<%= cls.id %>/attendance" class="btn btn--outline btn--xs">
+                      👥 Lista
+                    </a>
+                    <form action="/admin/classes/<%= cls.id %>/restore" method="POST" style="display:inline;"
+                          data-confirm="Przywrócić te zajęcia do głównego kalendarza?">
+                      <button type="submit" class="btn btn--primary btn--xs">♻️ Przywróć</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+</div>
+
+<script src="/js/main.js"></script>
+</body>
+</html>
