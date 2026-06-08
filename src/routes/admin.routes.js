@@ -51,6 +51,7 @@ function ensureInstructorAccount(email, firstName) {
 // Utwórz instruktorów (wymagane z zadania)
 ensureInstructorAccount('instructor1@example.com', 'Margo');
 ensureInstructorAccount('instructor2@example.com', 'Mikołaj');
+ensureInstructorAccount('instructor3@example.com', 'Kuba');
 
 // ============================================================
 // GET /admin/login
