@@ -52,6 +52,8 @@ function ensureInstructorAccount(email, firstName) {
 ensureInstructorAccount('instructor1@example.com', 'Margo');
 ensureInstructorAccount('instructor2@example.com', 'Mikołaj');
 ensureInstructorAccount('instructor3@example.com', 'Kuba');
+ensureInstructorAccount('instructor4@example.com', 'Angela');
+ensureInstructorAccount('instructor5@example.com', 'Julia');
 
 // ============================================================
 // GET /admin/login
