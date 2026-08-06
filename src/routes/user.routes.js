@@ -262,7 +262,7 @@ router.get('/book/:classId', requireAuth, requireProfile, (req, res) => {
     // Brak miejsc — sprawdź czy lista rezerwowa jest włączona
     const waitingListEnabled = !!classData.waiting_list_enabled;
     const waitingCount = waitingListEnabled ? WaitingListModel.countByClass(classData.id) : 0;
-    const waitingSpotsLeft = waitingListEnabled ? (classData.max_waiting_spots - waitingCount) : 0;
+    const waitingSpotsLeft = waitingListEnabled ? ((classData.max_waiting_spots || 10) - waitingCount) : 0;
     const userOnWaitlist = waitingListEnabled ? !!WaitingListModel.findByUserAndClass(req.user.id, classData.id) : false;
 
     return res.render('user/book', {

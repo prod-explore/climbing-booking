@@ -297,7 +297,11 @@
     if (isCancelled) {
       actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
     } else if (isFull) {
-      actions = `<span class="badge badge--full">Brak miejsc</span>`;
+      if (isLoggedIn) {
+        actions = `<a href="/book/${d.id}" class="btn btn--outline btn--lg">📋 Sprawdź listę rezerwową →</a>`;
+      } else {
+        actions = `<span class="badge badge--full">Brak miejsc</span>`;
+      }
     } else if (isLoggedIn) {
       actions = `<a href="/book/${d.id}" class="btn btn--primary btn--lg">Zapisz się →</a>`;
     } else {
