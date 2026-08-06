@@ -339,7 +339,9 @@
 
           let actions = '';
           if (isCancelled) actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
-          else if (isFull) actions = `<span class="badge badge--full">Brak miejsc</span>`;
+          else if (isFull) actions = isLoggedIn
+            ? `<a href="/book/${d.id}" class="btn btn--outline btn--lg">📋 Sprawdź listę rezerwową →</a>`
+            : `<span class="badge badge--full">Brak miejsc</span>`;
           else if (isLoggedIn) actions = `<a href="/book/${d.id}" class="btn btn--primary btn--lg">Zapisz się →</a>`;
           else actions = `<a href="/login?next=/book/${d.id}" class="btn btn--primary btn--lg">Zaloguj się, by się zapisać →</a>`;
           modalActions.innerHTML = actions;
