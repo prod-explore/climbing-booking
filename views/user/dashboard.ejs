@@ -48,7 +48,7 @@
         <h2 class="dashboard-section-title">Moje zapisy</h2>
 
         <% if (bookings.length === 0) { %>
-          <div class="empty-state">
+          <div class="empty-state" style="margin-top: 1.5rem;">
             <div class="empty-state-icon empty-state-icon--logo">
               <img src="/images/fw-logo.png" alt="" width="96" height="96" decoding="async">
             </div>
@@ -57,7 +57,20 @@
             <a href="/calendar" class="btn btn--primary">Zobacz kalendarz →</a>
           </div>
         <% } else { %>
-          <div class="bookings-list">
+          <% 
+             const activeCount = bookings.filter(b => new Date(b.start_time) >= new Date()).length;
+             const pastCount = bookings.filter(b => new Date(b.start_time) < new Date()).length;
+          %>
+          <div class="custom-tabs" style="display:flex; gap:1rem; margin-top:1rem; margin-bottom:1.5rem; border-bottom:2px solid var(--border);">
+            <button class="custom-tab-btn active" data-target="active" onclick="switchBookingTab('active')" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text); border-bottom:2px solid var(--brand); margin-bottom:-2px; transition:color 0.2s;">
+              Aktywne <span style="background:var(--bg-secondary); padding:2px 8px; border-radius:12px; font-size:0.85em; margin-left:4px;"><%= activeCount %></span>
+            </button>
+            <button class="custom-tab-btn" data-target="past" onclick="switchBookingTab('past')" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:color 0.2s;">
+              Przeszłe <span style="background:var(--bg-secondary); padding:2px 8px; border-radius:12px; font-size:0.85em; margin-left:4px;"><%= pastCount %></span>
+            </button>
+          </div>
+
+          <div class="bookings-list" id="bookingsList">
             <% bookings.forEach(b => { %>
               <%
                 const date = new Date(b.start_time);
@@ -68,7 +81,7 @@
                 const isPast = date < new Date();
                 const hoursLeft = (date - new Date()) / (1000 * 60 * 60);
               %>
-              <div class="booking-card <%= isPast ? 'booking-card--past' : '' %>">
+              <div class="booking-card <%= isPast ? 'booking-card--past' : '' %>" data-status="<%= isPast ? 'past' : 'active' %>">
                 <div class="booking-card-left">
                   <div class="booking-date-block">
                     <span class="booking-day"><%= date.getDate() %></span>
@@ -481,6 +494,54 @@
   modalClose.addEventListener('click', closeModal);
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* ── Booking tabs logic ────────────────────────────────── */
+  function switchBookingTab(tab) {
+    const btns = document.querySelectorAll('.custom-tab-btn');
+    const cards = document.querySelectorAll('#bookingsList .booking-card');
+    
+    btns.forEach(b => {
+      b.style.color = 'var(--text-muted)';
+      b.style.borderBottomColor = 'transparent';
+      b.classList.remove('active');
+      if (b.dataset.target === tab) {
+        b.style.color = 'var(--text)';
+        b.style.borderBottomColor = 'var(--brand)';
+        b.classList.add('active');
+      }
+    });
+
+    let visibleCount = 0;
+    cards.forEach(card => {
+      if (card.dataset.status === tab) {
+        card.style.display = 'flex';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    const emptyMsg = document.getElementById('bookingsEmptyMsg');
+    if (visibleCount === 0) {
+      if (!emptyMsg) {
+        const msg = document.createElement('div');
+        msg.id = 'bookingsEmptyMsg';
+        msg.className = 'empty-state';
+        msg.style.padding = '2rem';
+        msg.innerHTML = '<p style="color:var(--text-muted); font-size:1.1rem;">Brak zapisów w tej kategorii.</p>';
+        document.getElementById('bookingsList').appendChild(msg);
+      } else {
+        emptyMsg.style.display = '';
+      }
+    } else if (emptyMsg) {
+      emptyMsg.style.display = 'none';
+    }
+  }
+
+  // Initialize booking tabs – DOM is already ready at this point (inline script at bottom of body)
+  if (document.querySelector('.custom-tab-btn')) {
+    switchBookingTab('active');
+  }
 </script>
 
 <%- include('../partials/footer') %>
