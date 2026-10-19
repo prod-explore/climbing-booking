@@ -1,6 +1,6 @@
 /**
  * admin.routes.js — Panel administratora
- * Admin loguje się magic linkiem na adres contact@example.com
+ * Admin loguje się magic linkiem na adres z ADMIN_EMAILS
  *
  * v2 — Podwójne limity, zarządzanie zgodami
  */
@@ -8,6 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const validator = require('validator');
+const { parseEmailList, parseInstructors } = require('../utils/accounts');
 
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, getDb } = require('../models/database');
 const { requireAdmin, setAuthCookie, createMagicLink } = require('../middleware/auth');

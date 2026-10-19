@@ -177,7 +177,7 @@ src/migrations/
    ```bash
    cp .env.example .env
    ```
-   *Make sure to set your `RESEND_API_KEY` and `JWT_SECRET`.*
+   *Make sure to set your `RESEND_API_KEY` and `JWT_SECRET`. Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start.*
 
 3. **Install Dependencies:**
    ```bash
