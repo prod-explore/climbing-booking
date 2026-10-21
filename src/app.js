@@ -12,10 +12,12 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const compression = require('compression');
 
-const { initDatabase, ClassModel } = require('./models/database');
+const { initDatabase, ClassModel, getDb } = require('./models/database');
 const { initEmailService } = require('./services/emailService');
 const { loadUser } = require('./middleware/auth');
 const { generalLimiter, helmetConfig, sanitizeBody } = require('./middleware/security');
+const { requireSameOrigin } = require('./middleware/sameOrigin');
+const { safeJson } = require('./utils/safeJson');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,12 +37,25 @@ const instructorRoutes = require('./routes/instructor.routes');
 // Middleware globalny
 // ============================================================
 app.set('trust proxy', 1);
+
+// Liveness probe: registered before the rate limiter so health checks never use up a client's quota.
+app.get('/healthz', (req, res) => {
+  try {
+    getDb().prepare('SELECT 1').get();
+    res.type('text/plain').send('ok');
+  } catch (err) {
+    console.error('Health check failed:', err);
+    res.status(503).type('text/plain').send('database unavailable');
+  }
+});
+
 app.use(helmetConfig);
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
+app.use(requireSameOrigin);
 app.use(sanitizeBody);
 app.use(generalLimiter);
 
@@ -59,6 +74,7 @@ app.set('views', path.join(__dirname, '../views'));
 app.use((req, res, next) => {
   res.locals.appName = 'Fantastyczne Wspinanie';
   res.locals.currentYear = new Date().getFullYear();
+  res.locals.safeJson = safeJson;
   next();
 });
 
@@ -107,46 +123,54 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// Uruchomienie automatycznego archiwizowania zajęć w tle
+// Start serwera — tylko gdy plik uruchomiono bezpośrednio (node src/app.js).
+// Testy importują `app` bez otwierania portu.
 // ============================================================
-const archiveCron = setInterval(() => {
-  try {
-    ClassModel.archivePastWeek();
-  } catch (err) {
-    console.error('Błąd podczas archiwizacji (cron):', err);
-  }
-}, 1000 * 60 * 60 * 24); // co 24 godziny
+function start() {
+  // ============================================================
+  // Uruchomienie automatycznego archiwizowania zajęć w tle
+  // ============================================================
+  const archiveCron = setInterval(() => {
+    try {
+      ClassModel.archivePastWeek();
+    } catch (err) {
+      console.error('Błąd podczas archiwizacji (cron):', err);
+    }
+  }, 1000 * 60 * 60 * 24); // co 24 godziny
 
-// ============================================================
-// Start serwera
-// ============================================================
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-  ╔══════════════════════════════════════════════════╗
-  ║   Fantastyczne Wspinanie — System Rejestracji    ║
-  ║   Projekt dofinansowany z UE                     ║
-  ╠══════════════════════════════════════════════════╣
-  ║   Adres:  ${(process.env.APP_URL || `http://localhost:${PORT}`).padEnd(33)}║
-  ║   Środow: ${(process.env.NODE_ENV || 'development').padEnd(40)}║
-  ╚══════════════════════════════════════════════════╝
-  `);
-});
-
-// ============================================================
-// Graceful shutdown — sprzątanie przy zatrzymaniu procesu
-// ============================================================
-function shutdown(signal) {
-  console.log(`\n[${signal}] Zamykanie serwera...`);
-  clearInterval(archiveCron);
-  server.close(() => {
-    console.log('Serwer zamknięty.');
-    process.exit(0);
+  // ============================================================
+  // Start serwera
+  // ============================================================
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`
+    ╔══════════════════════════════════════════════════╗
+    ║   Fantastyczne Wspinanie — System Rejestracji    ║
+    ║   Projekt dofinansowany z UE                     ║
+    ╠══════════════════════════════════════════════════╣
+    ║   Adres:  ${(process.env.APP_URL || `http://localhost:${PORT}`).padEnd(33)}║
+    ║   Środow: ${(process.env.NODE_ENV || 'development').padEnd(40)}║
+    ╚══════════════════════════════════════════════════╝
+    `);
   });
-  // Force-exit po 10s jeśli coś się zawiesiło
-  setTimeout(() => process.exit(1), 10_000).unref();
+
+  // ============================================================
+  // Graceful shutdown — sprzątanie przy zatrzymaniu procesu
+  // ============================================================
+  function shutdown(signal) {
+    console.log(`\n[${signal}] Zamykanie serwera...`);
+    clearInterval(archiveCron);
+    server.close(() => {
+      console.log('Serwer zamknięty.');
+      process.exit(0);
+    });
+    // Force-exit po 10s jeśli coś się zawiesiło
+    setTimeout(() => process.exit(1), 10_000).unref();
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+if (require.main === module) start();
 
 module.exports = app;

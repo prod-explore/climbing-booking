@@ -191,10 +191,10 @@
 
 <script>
 document.getElementById('copyListBtn')?.addEventListener('click', () => {
-  const participants = <%- JSON.stringify(allParticipants) %>;
-  const className = <%- JSON.stringify(classData.name) %>;
-  const dateStr = <%- JSON.stringify(dateStr) %>;
-  const timeStr = <%- JSON.stringify(timeStr) %>;
+  const participants = <%- safeJson(allParticipants) %>;
+  const className = <%- safeJson(classData.name) %>;
+  const dateStr = <%- safeJson(dateStr) %>;
+  const timeStr = <%- safeJson(timeStr) %>;
   
   let text = `Zajęcia: ${className}\nData: ${dateStr} ${timeStr}\n\nUczestnicy:\n`;
   
