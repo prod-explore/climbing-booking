@@ -1,44 +1,32 @@
 # ============================================================
-# Dockerfile — Skarpa Bytom
-# Node.js 20 Alpine (minimalne, szybkie)
+# Fantastyczne Wspinanie — production image
+# Multi-stage: the build toolchain is only needed if better-sqlite3 has no
+# prebuilt binary for the platform, and never reaches the final image.
 # ============================================================
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS deps
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-# Zależności systemowe potrzebne do better-sqlite3 (native module)
-RUN apk add --no-cache python3 make g++ sqlite
-
+FROM node:22-alpine AS production
+ENV NODE_ENV=production
 WORKDIR /app
 
-# --- Warstwa zależności (cache) ---
-FROM base AS deps
-COPY package*.json ./
-RUN npm install --only=production
-
-# --- Warstwa produkcyjna ---
-FROM base AS production
-
-WORKDIR /app
-
-# Kopiuj zależności
 COPY --from=deps /app/node_modules ./node_modules
-
-# Kopiuj kod aplikacji
-COPY src/        ./src/
-COPY views/      ./views/
-COPY public/     ./public/
 COPY package.json ./
+COPY src/    ./src/
+COPY views/  ./views/
+COPY public/ ./public/
 
-# Utwórz katalog na dane (baza SQLite)
+# Data directory for the SQLite database (mounted as a volume)
 RUN mkdir -p /app/data && chown -R node:node /app/data
 
-# Uruchom jako nieprivilegowany użytkownik (bezpieczeństwo)
 USER node
-
 EXPOSE 3000
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget -qO- http://localhost:3000/ || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO /dev/null http://127.0.0.1:3000/healthz || exit 1
 
 CMD ["node", "src/app.js"]
