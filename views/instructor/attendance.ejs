@@ -112,7 +112,7 @@
 </style>
 
 <script type="application/json" id="attendanceData">
-  <%- JSON.stringify({
+  <%- safeJson({
     participants: allParticipants,
     className: classData.name,
     dateStr: dateStr,
