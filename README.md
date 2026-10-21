@@ -2,8 +2,8 @@
   <h1>🧗Fantastyczne Wspinanie</h1>
   <p><strong>Climbing Class Registration & Management System</strong></p>
 
-  [![Build Status](https://github.com/prod-explore/SKARPA/actions/workflows/ci.yml/badge.svg)](https://github.com/prod-explore/SKARPA/actions)
-  [![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
+  [![Build Status](https://github.com/prod-explore/climbing-booking/actions/workflows/ci.yml/badge.svg)](https://github.com/prod-explore/climbing-booking/actions)
+  [![Node.js](https://img.shields.io/badge/Node.js-22%2B-green.svg)](https://nodejs.org/)
   [![SQLite](https://img.shields.io/badge/SQLite-Fast-003B57.svg)](https://www.sqlite.org/)
 </div>
 
@@ -160,7 +160,7 @@ src/migrations/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js (v22+)
 - Docker & Docker Compose (Optional, for containerized deployment)
 - Resend API Key
 
@@ -168,7 +168,7 @@ src/migrations/
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/prod-explore/skarpa-bytom.git
+   git clone https://github.com/prod-explore/climbing-booking.git
    cd skarpa-bytom
    ```
 
@@ -204,16 +204,22 @@ The application will be exposed on the port defined in your `docker-compose.yml`
 npm test
 ```
 
-Integration tests use an in-memory SQLite database — covers bookings, participant counts, duplicate prevention, cascade deletes, and spot limits.
+The suite uses an in-memory SQLite database and needs no services:
+
+- **Models**: bookings, participant counts, duplicate prevention, cascade deletes, spot limits.
+- **HTTP** (supertest, no port opened): health check, error pages, redirects of protected pages, security headers, and the same-origin check on state-changing requests.
+- **Views**: server data embedded in `<script>` elements stays inert, even with a hostile name.
+- **Configuration**: parsing of `ADMIN_EMAILS` and `INSTRUCTORS`.
 
 ---
 
 ## 🤖 CI/CD Pipeline
 
 The project uses **GitHub Actions** for continuous integration. Every push and Pull Request to the `main` branch triggers an automated pipeline that:
-1. Sets up the environment using cached dependencies (faster builds).
-2. Runs the full integration test suite (`npm test`) on an isolated in-memory database.
-3. Ensures code stability before any deployment.
+1. Installs dependencies with `npm ci` (Node 22 and 24).
+2. Runs the full test suite (`npm test`) on an isolated in-memory database.
+3. Fails on known high-severity vulnerabilities in production dependencies (`npm audit`).
+4. Builds the Docker image.
 
 ---
 
@@ -224,7 +230,7 @@ The project uses **GitHub Actions** for continuous integration. Every push and P
 - **Authentication**: JSON Web Tokens (`jsonwebtoken`)
 - **Email Delivery**: Resend (`resend`)
 - **Templating**: EJS
-- **Security**: Helmet, Express Rate Limit, Cookie Parser
+- **Security**: Helmet (CSP), Express Rate Limit, HttpOnly + SameSite cookies, one-time magic links, same-origin check on writes
 
 ---
 <div align="center">
