@@ -57,7 +57,7 @@ async function checkAndPromoteWaitingList(classId) {
   }
 }
 
-const envAdmins = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || 'admin@example.com,contact@example.com';
+const envAdmins = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '';
 const ADMIN_EMAILS = envAdmins.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
 // Upewnij się, że konto admina istnieje i ma flagę is_admin=1
@@ -76,6 +76,9 @@ function ensureAdminAccount(rawEmail) {
 }
 
 // Inicjalizuj wszystkie konta administratorów z listy
+if (!ADMIN_EMAILS.length && process.env.NODE_ENV !== 'test') {
+  console.warn('ADMIN_EMAILS is empty: nobody can sign in to the admin panel.');
+}
 ADMIN_EMAILS.forEach(ensureAdminAccount);
 
 // Inicjalizuj konta instruktorów

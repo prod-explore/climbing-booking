@@ -1,9 +1,8 @@
 /**
- * emailService.js — Wysyłka magic linków przez Resend
- * Jedyny typ maila: jednorazowy link logowania.
+ * emailService.js — Wysyłka maili przez Resend: magic link logowania, wypisanie z zajęć, awans z listy rezerwowej.
  * Techniki anty-spam:
  *  - Proper From z display name dopasowanym do domeny
- *  - Reply-To = kontaktowy adres projektu
+ *  - Reply-To = kontaktowy adres projektu (CONTACT_EMAIL)
  *  - List-Unsubscribe header (wymagany przez Gmail/Outlook dla bulk)
  *  - Text/plain alternative
  *  - Brak obrazków śledzących, brak ukrytych px
@@ -11,6 +10,7 @@
  */
 
 const { Resend } = require('resend');
+const { contactEmail } = require('../utils/contact');
 
 let resend;
 
@@ -24,7 +24,8 @@ function getResend() {
 }
 
 const FROM_ADDRESS  = process.env.EMAIL_FROM  || 'Fantastyczne Wspinanie <noreply@club.example>';
-const REPLY_TO      = process.env.EMAIL_REPLY || 'contact@example.com';
+const CONTACT_EMAIL = contactEmail();
+const REPLY_TO      = process.env.EMAIL_REPLY || CONTACT_EMAIL;
 const APP_NAME      = 'Fantastyczne Wspinanie — System zapisów';
 
 function magicLinkEmailHTML(magicLink, isNewUser) {
@@ -107,8 +108,8 @@ function magicLinkEmailHTML(magicLink, isNewUser) {
 
 function magicLinkEmailText(magicLink, isNewUser) {
   return isNewUser
-    ? `Witaj!\n\nKliknij ten link, aby aktywować konto (ważny 15 min):\n${magicLink}\n\nJeśli nie zakładałeś(-aś) konta — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | contact@example.com`
-    : `Twój link do logowania (jednorazowy, ważny 15 min):\n${magicLink}\n\nJeśli nie prosiłeś(-aś) o ten link — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | contact@example.com`;
+    ? `Witaj!\n\nKliknij ten link, aby aktywować konto (ważny 15 min):\n${magicLink}\n\nJeśli nie zakładałeś(-aś) konta — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}`
+    : `Twój link do logowania (jednorazowy, ważny 15 min):\n${magicLink}\n\nJeśli nie prosiłeś(-aś) o ten link — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}`;
 }
 
 async function sendMagicLink(email, magicLink, isNewUser = false) {
@@ -183,7 +184,7 @@ function participantRemovedHTML(participantName, className, classDate) {
             </table>
             <p style="margin:0;font-size:14px;line-height:1.6;color:#777;">
               Decyzja została podjęta przez administratora. W razie pytań skontaktuj się z nami pod adresem
-              <a href="mailto:contact@example.com" style="color:#2d5a3d;font-weight:600;">contact@example.com</a>.
+              <a href="mailto:${CONTACT_EMAIL}" style="color:#2d5a3d;font-weight:600;">${CONTACT_EMAIL}</a>.
             </p>
           </td>
         </tr>
@@ -202,7 +203,7 @@ function participantRemovedHTML(participantName, className, classDate) {
 }
 
 function participantRemovedText(participantName, className, classDate) {
-  return `Wypisanie z zajęć\n\nUczestnik ${participantName} został wypisany z zajęć "${className}" (${classDate}).\n\nDecyzja została podjęta przez administratora.\nW razie pytań: contact@example.com\n\n-- Fantastyczne Wspinanie`;
+  return `Wypisanie z zajęć\n\nUczestnik ${participantName} został wypisany z zajęć "${className}" (${classDate}).\n\nDecyzja została podjęta przez administratora.\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie`;
 }
 
 async function sendParticipantRemovedEmail(toEmail, participantName, className, classDate) {
@@ -276,7 +277,7 @@ function waitingListPromotedHTML(firstName, className, classDate, dashboardLink)
               </tr>
             </table>
             <p style="margin:0;font-size:13px;line-height:1.6;color:#777;">
-              W razie pytań skontaktuj się z nami: <a href="mailto:contact@example.com" style="color:#2d5a3d;font-weight:600;">contact@example.com</a>
+              W razie pytań skontaktuj się z nami: <a href="mailto:${CONTACT_EMAIL}" style="color:#2d5a3d;font-weight:600;">${CONTACT_EMAIL}</a>
             </p>
           </td>
         </tr>
@@ -293,7 +294,7 @@ function waitingListPromotedHTML(firstName, className, classDate, dashboardLink)
 }
 
 function waitingListPromotedText(firstName, className, classDate) {
-  return `Cześć ${firstName}!\n\nMiejsce zwolniło się i Twój zapis z listy rezerwowej został automatycznie potwierdzony.\n\nZajęcia: "${className}"\nData: ${classDate}\n\nZaloguj się do panelu uczestnika, aby zobaczyć szczegóły.\n\nW razie pytań: contact@example.com\n\n-- Fantastyczne Wspinanie`;
+  return `Cześć ${firstName}!\n\nMiejsce zwolniło się i Twój zapis z listy rezerwowej został automatycznie potwierdzony.\n\nZajęcia: "${className}"\nData: ${classDate}\n\nZaloguj się do panelu uczestnika, aby zobaczyć szczegóły.\n\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie`;
 }
 
 async function sendWaitingListPromotedEmail(toEmail, firstName, className, classDate, dashboardLink) {
