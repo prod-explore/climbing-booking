@@ -169,7 +169,7 @@ src/migrations/
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/prod-explore/climbing-booking.git
-   cd skarpa-bytom
+   cd climbing-booking
    ```
 
 2. **Configure Environment Variables:**
@@ -177,7 +177,7 @@ src/migrations/
    ```bash
    cp .env.example .env
    ```
-   *Make sure to set your `RESEND_API_KEY` and `JWT_SECRET`. Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start.*
+   *Make sure to set your `RESEND_API_KEY` and `JWT_SECRET`. Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start. The public contact address shown on the site and in e-mails is `CONTACT_EMAIL`.*
 
 3. **Install Dependencies:**
    ```bash
@@ -209,7 +209,7 @@ The suite uses an in-memory SQLite database and needs no services:
 - **Models**: bookings, participant counts, duplicate prevention, cascade deletes, spot limits.
 - **HTTP** (supertest, no port opened): health check, error pages, redirects of protected pages, security headers, and the same-origin check on state-changing requests.
 - **Views**: server data embedded in `<script>` elements stays inert, even with a hostile name.
-- **Configuration**: parsing of `ADMIN_EMAILS` and `INSTRUCTORS`.
+- **Configuration**: parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address (`CONTACT_EMAIL`) on the pages and in the e-mails, with Resend mocked.
 
 ---
 

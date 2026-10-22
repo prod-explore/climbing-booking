@@ -18,6 +18,7 @@ const { loadUser } = require('./middleware/auth');
 const { generalLimiter, helmetConfig, sanitizeBody } = require('./middleware/security');
 const { requireSameOrigin } = require('./middleware/sameOrigin');
 const { safeJson } = require('./utils/safeJson');
+const { contactEmail } = require('./utils/contact');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,9 @@ const instructorRoutes = require('./routes/instructor.routes');
 // Middleware globalny
 // ============================================================
 app.set('trust proxy', 1);
+
+// Available to every template, also when a view is rendered outside a request.
+app.locals.contactEmail = contactEmail();
 
 // Liveness probe: registered before the rate limiter so health checks never use up a client's quota.
 app.get('/healthz', (req, res) => {
