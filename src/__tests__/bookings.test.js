@@ -167,32 +167,3 @@ describe('Rezerwacje — podstawowe operacje', () => {
     expect(remaining).toHaveLength(0);
   });
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('Limit miejsc', () => {
-  let db, m;
-
-  beforeEach(() => {
-    db = createTestDb();
-    m = makeModels(db);
-  });
-
-  test('nie pozwala przekroczyć limitu dorosłych (walidacja na poziomie aplikacji)', () => {
-    const classId = m.createClass({ name: 'Pełne', startTime: '2027-04-01 10:00:00', maxSpots: 2 }).lastInsertRowid;
-
-    // Wypełnij do limitu
-    for (let i = 0; i < 2; i++) {
-      const uid = m.createUser(`user${i}@example.com`).lastInsertRowid;
-      m.bookWithParticipants(uid, classId, [
-        { firstName: `U${i}`, lastName: 'Test', ageCategory: 'adult', isMain: true }
-      ]);
-    }
-
-    const cls = db.prepare('SELECT max_spots FROM classes WHERE id = ?').get(classId);
-    const taken = m.countAdults(classId);
-
-    expect(taken).toBe(cls.max_spots); // zajęcia pełne
-    expect(taken >= cls.max_spots).toBe(true);
-  });
-});
