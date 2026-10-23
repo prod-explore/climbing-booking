@@ -6,10 +6,12 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { UserModel, MagicTokenModel } = require('../models/database');
+const { assertStrongSecret } = require('../utils/secrets');
+const { appUrl } = require('../utils/appUrl');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error('FATAL: JWT_SECRET is not set in .env');
-const MAGIC_LINK_EXPIRY = process.env.JWT_MAGIC_LINK_EXPIRY || '15m';
+assertStrongSecret('JWT_SECRET', JWT_SECRET);
 
 /**
  * Generuje kryptograficznie bezpieczny token magic linku
@@ -27,8 +29,7 @@ function createMagicLink(userId) {
 
   MagicTokenModel.create(userId, token, expiresAt);
 
-  const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  return { token, magicLink: `${appUrl}/auth/verify?token=${token}` };
+  return { token, magicLink: `${appUrl()}/auth/verify?token=${token}` };
 }
 
 /**
