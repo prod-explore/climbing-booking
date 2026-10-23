@@ -170,9 +170,6 @@ const MagicTokenModel = {
       WHERE mt.token = ? AND mt.used = 0 AND datetime(mt.expires_at) > datetime('now')
     `).get(token),
 
-  markUsed: (token) =>
-    getDb().prepare('UPDATE magic_tokens SET used = 1 WHERE token = ?').run(token),
-
   /**
    * Uses a token up: returns its record when it was valid and this call is the one that spent it,
    * undefined otherwise (unknown, expired, or already used).

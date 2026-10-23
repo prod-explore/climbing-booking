@@ -1,0 +1,29 @@
+<%- include('../partials/head') %>
+
+<div class="auth-page">
+  <div class="auth-side auth-side--form">
+    <div class="auth-form-wrapper">
+      <a href="/" class="auth-back">← Wróć na stronę główną</a>
+
+      <h1 class="auth-title">Potwierdź logowanie</h1>
+      <p class="auth-subtitle">Kliknij przycisk, aby zalogować się z tego urządzenia.</p>
+
+      <form action="/auth/verify" method="POST" class="auth-form">
+        <input type="hidden" name="token" value="<%= token %>">
+        <input type="hidden" name="next" value="<%= next %>">
+
+        <button type="submit" class="btn btn--primary btn--full btn--lg">
+          Zaloguj się →
+        </button>
+
+        <p class="auth-note">
+          Jeśli to nie Ty prosiłeś o ten link, po prostu zamknij tę stronę.
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
+</body>
+</html>

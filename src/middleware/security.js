@@ -30,6 +30,42 @@ const magicLinkLimiter = rateLimit({
 });
 
 /**
+ * Okno przesuwne w pamięci: najwyżej `max` zdarzeń na klucz w czasie `windowMs`.
+ * `take(key)` zwraca true i zapisuje zdarzenie albo false, gdy limit jest wyczerpany.
+ * Stan ginie przy restarcie, co przy limicie godzinnym na adres e-mail jest akceptowalne.
+ */
+function createWindowLimiter({ max, windowMs, now = () => Date.now() }) {
+  const hits = new Map();
+
+  function recent(key, t) {
+    const list = (hits.get(key) || []).filter(ts => ts > t - windowMs);
+    if (list.length === 0) hits.delete(key);
+    else hits.set(key, list);
+    return list;
+  }
+
+  return {
+    take(key) {
+      const t = now();
+      const list = recent(key, t);
+      if (list.length >= max) return false;
+      hits.set(key, [...list, t]);
+      // Okazjonalnie sprzątaj klucze, do których nikt już nie wraca, żeby mapa nie rosła bez końca.
+      if (hits.size > 5000) for (const k of [...hits.keys()]) recent(k, t);
+      return true;
+    }
+  };
+}
+
+/**
+ * Limit wysyłek magic linku na jeden adres e-mail (niezależnie od IP).
+ */
+const emailRequestLimiter = createWindowLimiter({
+  max: parseInt(process.env.MAGIC_LINK_EMAIL_LIMIT_MAX) || 3,
+  windowMs: 60 * 60 * 1000
+});
+
+/**
  * Rate limit dla endpointów API (zapisy, itp.)
  */
 const apiLimiter = rateLimit({
@@ -88,6 +124,8 @@ function sanitizeBody(req, res, next) {
 }
 
 module.exports = {
+  createWindowLimiter,
+  emailRequestLimiter,
   generalLimiter,
   magicLinkLimiter,
   apiLimiter,
