@@ -23,6 +23,20 @@ if (!fs.existsSync(dbDir)) {
 let db;
 
 /**
+ * Rzucany przez BookingModel.book, gdy w którejś puli nie ma dość wolnych miejsc.
+ * `code`: NO_CLASS | NO_ADULT_SPOTS | NO_CHILD_SPOTS; liczby opisują stan w chwili sprawdzenia.
+ */
+class SpotsError extends Error {
+  constructor(code, adultSpotsLeft, childSpotsLeft) {
+    super(code);
+    this.name = 'SpotsError';
+    this.code = code;
+    this.adultSpotsLeft = adultSpotsLeft;
+    this.childSpotsLeft = childSpotsLeft;
+  }
+}
+
+/**
  * Zwraca string 'YYYY-MM-DD HH:MM:SS' odpowiadający poniedziałkowi bieżącego tygodnia o 00:00:00
  * w lokalnej strefie czasowej — używany jako granica archiwizacji zajęć.
  */
@@ -350,6 +364,36 @@ const BookingModel = {
     return insert();
   },
 
+  /**
+   * Zapisuje na zajęcia i sprawdza wolne miejsca w tej samej transakcji zapisu.
+   * BEGIN IMMEDIATE zajmuje blokadę zapisu, zanim miejsca zostaną policzone, więc limit nie zależy od tego,
+   * że wywołujący akurat nie ma `await` między własnym sprawdzeniem a insertem (ani od tego, że działa jeden proces).
+   * Rzuca SpotsError, gdy w puli brakuje miejsc.
+   */
+  book: (userId, classId, participants) => {
+    const run = getDb().transaction(() => {
+      const cls = getDb().prepare(
+        'SELECT max_spots, max_child_spots, class_type FROM classes WHERE id = ?'
+      ).get(classId);
+      if (!cls) throw new SpotsError('NO_CLASS', 0, 0);
+
+      const taken = BookingModel.getSpotCounts(classId);
+      const adultSpotsLeft = cls.max_spots - taken.adult_taken;
+      const childSpotsLeft = cls.class_type === 'adult_and_child'
+        ? cls.max_child_spots - taken.child_taken
+        : 0;
+
+      const adultsNeeded = participants.filter(p => (p.ageCategory || 'adult') === 'adult').length;
+      const childrenNeeded = participants.filter(p => p.ageCategory === 'child').length;
+
+      if (adultsNeeded > adultSpotsLeft) throw new SpotsError('NO_ADULT_SPOTS', adultSpotsLeft, childSpotsLeft);
+      if (childrenNeeded > childSpotsLeft) throw new SpotsError('NO_CHILD_SPOTS', adultSpotsLeft, childSpotsLeft);
+
+      return BookingModel.createWithParticipants(userId, classId, participants);
+    });
+    return run.immediate();
+  },
+
   getByClass: (classId) =>
     getDb().prepare(`
       SELECT b.id as booking_id, b.created_at, u.email, u.first_name as user_first, u.last_name as user_last
@@ -416,7 +460,7 @@ const WaitingListModel = {
 
   getFirst: (classId) =>
     getDb().prepare(
-      'SELECT wl.*, u.email, u.first_name, u.last_name FROM waiting_list wl JOIN users u ON wl.user_id = u.id WHERE wl.class_id = ? ORDER BY wl.created_at ASC LIMIT 1'
+      'SELECT wl.*, u.email, u.first_name, u.last_name FROM waiting_list wl JOIN users u ON wl.user_id = u.id WHERE wl.class_id = ? ORDER BY wl.created_at ASC, wl.id ASC LIMIT 1'
     ).get(classId),
 
   getByClass: (classId) =>
@@ -425,7 +469,7 @@ const WaitingListModel = {
       FROM waiting_list wl
       JOIN users u ON wl.user_id = u.id
       WHERE wl.class_id = ?
-      ORDER BY wl.created_at ASC
+      ORDER BY wl.created_at ASC, wl.id ASC
     `).all(classId),
 
   countByClass: (classId) =>
@@ -451,4 +495,4 @@ const QrScanModel = {
     getDb().prepare('SELECT COUNT(*) as cnt FROM qr_scans').get().cnt
 };
 
-module.exports = { initDatabase, getDb, UserModel, MagicTokenModel, ClassModel, BookingModel, QrScanModel, WaitingListModel };
+module.exports = { initDatabase, getDb, SpotsError, UserModel, MagicTokenModel, ClassModel, BookingModel, QrScanModel, WaitingListModel };

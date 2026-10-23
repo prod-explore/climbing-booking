@@ -13,49 +13,9 @@ const { parseEmailList, parseInstructors } = require('../utils/accounts');
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, getDb } = require('../models/database');
 const { requireAdmin, setAuthCookie, createMagicLink } = require('../middleware/auth');
 const { adminLoginLimiter } = require('../middleware/security');
-const { sendMagicLink, sendParticipantRemovedEmail, sendWaitingListPromotedEmail } = require('../services/emailService');
+const { sendMagicLink, sendParticipantRemovedEmail } = require('../services/emailService');
+const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { calculateAge } = require('../utils/age');
-
-// ============================================================
-// Funkcja pomocnicza: przenieś pierwszą osobę z listy rezerwowej
-// na listę główną gdy zwolni się miejsce w puli dorosłych
-// ============================================================
-async function checkAndPromoteWaitingList(classId) {
-  try {
-    const classData = ClassModel.getById(classId);
-    if (!classData || !classData.waiting_list_enabled) return;
-
-    const spots = BookingModel.getSpotCounts(classId);
-    const adultSpotsLeft = classData.max_spots - spots.adult_taken;
-    if (adultSpotsLeft <= 0) return; // Nadal brak miejsc
-
-    const first = WaitingListModel.getFirst(classId);
-    if (!first) return; // Lista rezerwowa pusta
-
-    // Przenieś na listę główną (tylko jako sam uczestnik-dorosły)
-    BookingModel.createWithParticipants(first.user_id, classId, [{
-      firstName:   first.first_name,
-      lastName:    first.last_name,
-      ageCategory: 'adult',
-      isMain:      true,
-      age:         null
-    }]);
-
-    WaitingListModel.remove(first.user_id, classId);
-
-    // Wyślij powiadomienie e-mail
-    const classDate = new Date(classData.start_time).toLocaleDateString('pl-PL', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-    const dashboardLink = `${process.env.APP_URL || 'https://club.example'}/dashboard`;
-    await sendWaitingListPromotedEmail(first.email, first.first_name, classData.name, classDate, dashboardLink);
-    console.log(`✅ Przeniesiono ${first.email} z listy rezerwowej na główną (klasa ${classId})`);
-  } catch (err) {
-    console.error('Błąd checkAndPromoteWaitingList:', err);
-    // Nie przerywamy — to operacja tła
-  }
-}
 
 const envAdmins = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '';
 const ADMIN_EMAILS = envAdmins.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
