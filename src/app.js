@@ -19,6 +19,10 @@ const { generalLimiter, helmetConfig, sanitizeBody } = require('./middleware/sec
 const { requireSameOrigin } = require('./middleware/sameOrigin');
 const { safeJson } = require('./utils/safeJson');
 const { contactEmail } = require('./utils/contact');
+const { appUrl } = require('./utils/appUrl');
+
+// Fail at startup, not at the first e-mail, when the public URL is missing in production.
+appUrl();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -151,7 +155,7 @@ function start() {
     ║   Fantastyczne Wspinanie — System Rejestracji    ║
     ║   Projekt dofinansowany z UE                     ║
     ╠══════════════════════════════════════════════════╣
-    ║   Adres:  ${(process.env.APP_URL || `http://localhost:${PORT}`).padEnd(33)}║
+    ║   Adres:  ${appUrl().padEnd(33)}║
     ║   Środow: ${(process.env.NODE_ENV || 'development').padEnd(40)}║
     ╚══════════════════════════════════════════════════╝
     `);
