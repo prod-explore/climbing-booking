@@ -37,6 +37,8 @@ graph TD
 
 - **Why SQLite over PostgreSQL/MySQL?**: The system is designed as a single-tenant deployment for one climbing facility. Using `better-sqlite3` provides ultra-fast, synchronous data access without network overhead (TCP/IP). With WAL (Write-Ahead Logging) mode enabled, it easily handles the required read/write concurrency while eliminating the need to manage and maintain a separate database server.
 - **Why Server-Side Rendering (EJS) over a SPA?**: The application consists primarily of complex registration forms, attendance lists, and schedules. SSR significantly reduced time-to-market for a solo developer by removing the overhead of building and maintaining a separate REST API and frontend state management. Furthermore, SSR ensures an immediate "First Contentful Paint," which is critical for instructors and parents accessing the site on mobile devices within climbing gyms where internet coverage is often poor.
+- **Why does the e-mail link only show a button?**: Mail scanners and link previews open the URLs in a message before the person does. If opening the link logged you in (and spent the one-time token), the token could be gone by the time of the real click. `GET /auth/verify` therefore only renders a confirmation page; `POST /auth/verify` checks and spends the token in one transaction and sets the session.
+- **Why are the places counted inside the booking transaction?**: The limit of each pool (adults, children) is a rule about the data, so `BookingModel.book` enforces it under `BEGIN IMMEDIATE` and throws `SpotsError`, instead of relying on the route checking first and inserting next. The route's own check only produces a readable message.
 - **Schema Evolution (Iterative Development)**: The data model evolved continuously alongside business requirements. Major pivots included implementing Role-Based Access Control (RBAC) to separate admin/instructor views, adding age categories and parental consent workflows for minors, and restructuring the class schedule tables (`max_child_spots`, `child_instructor`) to support a unique "Dual Capacity" system where adult classes run parallel to dedicated children's animations.
 
 ---
@@ -51,11 +53,12 @@ graph TD
 ### 📅 Class Calendar & Scheduling
 - **Dynamic Registration Schedules**: Automated class slots available for sign-ups based on day of the week, instructor availability, and class type (e.g., beginner, advanced, children's animations).
 - **Attendance Tracking**: Real-time participant list management allowing instructors to quickly check in students directly from their mobile devices during classes.
-- **Capacity Control**: Automatic caps on class sizes to prevent overbooking, ensuring a safe climbing environment.
+- **Capacity Control**: Separate adult and child pools per class, enforced inside the booking transaction, so a group is booked whole or not at all.
+- **Waiting List**: When a class is full, adults can queue; the first in line is booked and notified by e-mail as soon as a place frees up.
 
 ### 🔒 Security & Operations
 - **Automated Email Notifications**: Integration with the `Resend` API for transactional emails, registration confirmations, and important schedule changes.
-- **Security Hardened**: Protected against common web vulnerabilities via `helmet`, `express-rate-limit`, and data validation (`validator`).
+- **Security**: One-time magic links (15 minutes, spent on a confirmation click), HttpOnly + SameSite session cookie, a same-origin check on every write, rate limits per IP and per e-mail address, `helmet` headers, input validation (`validator`), and a startup check that refuses a placeholder `JWT_SECRET`. See *Known limitations* for what is not covered.
 - **Server-Side Rendering**: Fast, SEO-friendly, and accessible views rendered natively via EJS.
 - **Containerized**: Fully Dockerized for instant, reproducible deployments across any environment.
 
@@ -103,6 +106,14 @@ erDiagram
         TEXT color
         INTEGER is_cancelled
         INTEGER is_archived
+        INTEGER waiting_list_enabled
+        INTEGER max_waiting_spots
+        DATETIME created_at
+    }
+    waiting_list {
+        INTEGER id PK
+        INTEGER class_id FK
+        INTEGER user_id FK
         DATETIME created_at
     }
     bookings {
@@ -137,6 +148,8 @@ erDiagram
     users ||--o{ bookings      : "creates"
     classes ||--o{ bookings    : "contains"
     bookings ||--o{ participants : "groups"
+    classes ||--o{ waiting_list : "queues"
+    users ||--o{ waiting_list  : "joins"
 ```
 
 ---
@@ -152,7 +165,8 @@ src/migrations/
 ├── 002_user_verification.sql
 ├── 003_instructor_role.sql
 ├── 004_family_classes.sql
-└── 005_class_color_archive.sql
+├── 005_class_color_archive.sql
+└── 006_waiting_list.sql
 ```
 
 ---
@@ -177,7 +191,7 @@ src/migrations/
    ```bash
    cp .env.example .env
    ```
-   *Make sure to set your `RESEND_API_KEY` and `JWT_SECRET`. Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start. The public contact address shown on the site and in e-mails is `CONTACT_EMAIL`.*
+   *Set `RESEND_API_KEY`, `APP_URL` (required in production: the links in e-mails are built from it) and `JWT_SECRET` (generate it with `openssl rand -hex 32`; the app refuses to start with a placeholder, a short or a repetitive value, unless `ALLOW_WEAK_SECRETS=true` for local work). Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start. The public contact address shown on the site and in e-mails is `CONTACT_EMAIL`.*
 
 3. **Install Dependencies:**
    ```bash
@@ -204,12 +218,15 @@ The application will be exposed on the port defined in your `docker-compose.yml`
 npm test
 ```
 
-The suite uses an in-memory SQLite database and needs no services:
+The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app; only the e-mail sender is replaced:
 
-- **Models**: bookings, participant counts, duplicate prevention, cascade deletes, spot limits.
-- **HTTP** (supertest, no port opened): health check, error pages, redirects of protected pages, security headers, and the same-origin check on state-changing requests.
+- **Capacity** (`BookingModel.book`): a refused group leaves nothing behind, the adult and child pools stay apart, duplicates use no places, the waiting list is promoted through the real service.
+- **Login tokens**: expiry (including a token that expired a minute ago, the same day), single use.
+- **Login flow over HTTP** (supertest, no port opened): the e-mail link does not spend the token, `POST /auth/verify` logs in once, the `next` parameter cannot leave the site, the per-address limit.
+- **HTTP**: health check, error pages, redirects of protected pages, security headers, and the same-origin check on state-changing requests.
 - **Views**: server data embedded in `<script>` elements stays inert, even with a hostile name.
-- **Configuration**: parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address (`CONTACT_EMAIL`) on the pages and in the e-mails, with Resend mocked.
+- **Configuration**: the secret and `APP_URL` checks; parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address (`CONTACT_EMAIL`) on the pages and in the e-mails, with Resend mocked.
+- **Migrations**: the runner applies every file once and records it.
 
 ---
 
@@ -230,7 +247,16 @@ The project uses **GitHub Actions** for continuous integration. Every push and P
 - **Authentication**: JSON Web Tokens (`jsonwebtoken`)
 - **Email Delivery**: Resend (`resend`)
 - **Templating**: EJS
-- **Security**: Helmet (CSP), Express Rate Limit, HttpOnly + SameSite cookies, one-time magic links, same-origin check on writes
+- **Security**: Helmet (headers and a CSP, see *Known limitations*), Express Rate Limit plus a per-address limit, HttpOnly + SameSite cookies, one-time magic links, same-origin check on writes
+
+---
+
+## ⚠️ Known limitations
+
+- **The CSP allows inline scripts** (`'unsafe-inline'`): the views use inline handlers and script blocks. Moving to nonces means moving those handlers into `public/js/main.js`.
+- **A session is a 90-day JWT** that cannot be revoked before it expires; logging out clears the cookie only. Server-side sessions (as in a typical session table) would fix it.
+- **Rate limits live in memory**, so they reset on restart, and the app is a single process by design (SQLite, no shared state).
+- **Input is sanitised twice**: tags are stripped from every body field (`sanitizeBody`) and EJS escapes on output. The second is the one that protects; the first is a legacy of the early versions.
 
 ---
 <div align="center">
