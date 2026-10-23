@@ -6,49 +6,11 @@
 const express = require('express');
 const router = express.Router();
 
-const { ClassModel, BookingModel, UserModel, QrScanModel, WaitingListModel } = require('../models/database');
+const { ClassModel, BookingModel, UserModel, QrScanModel, WaitingListModel, SpotsError } = require('../models/database');
 const { requireAuth, requireProfile } = require('../middleware/auth');
-const { sendMagicLink, sendWaitingListPromotedEmail } = require('../services/emailService');
+const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { apiLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
-
-// ============================================================
-// Funkcja pomocnicza: przenieś pierwszą osobę z listy rezerwowej
-// (identyczna logika jak w admin.routes.js)
-// ============================================================
-async function checkAndPromoteWaitingList(classId) {
-  try {
-    const classData = ClassModel.getById(classId);
-    if (!classData || !classData.waiting_list_enabled) return;
-
-    const spots = BookingModel.getSpotCounts(classId);
-    const adultSpotsLeft = classData.max_spots - spots.adult_taken;
-    if (adultSpotsLeft <= 0) return;
-
-    const first = WaitingListModel.getFirst(classId);
-    if (!first) return;
-
-    BookingModel.createWithParticipants(first.user_id, classId, [{
-      firstName:   first.first_name,
-      lastName:    first.last_name,
-      ageCategory: 'adult',
-      isMain:      true,
-      age:         null
-    }]);
-
-    WaitingListModel.remove(first.user_id, classId);
-
-    const classDate = new Date(classData.start_time).toLocaleDateString('pl-PL', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-    const dashboardLink = `${process.env.APP_URL || 'https://club.example'}/dashboard`;
-    await sendWaitingListPromotedEmail(first.email, first.first_name, classData.name, classDate, dashboardLink);
-    console.log(`✅ Przeniesiono ${first.email} z listy rezerwowej na główną (klasa ${classId})`);
-  } catch (err) {
-    console.error('Błąd checkAndPromoteWaitingList (user):', err);
-  }
-}
 
 /** Wiek dziecka przy zapisie (7–17 lat), wymagany dla każdego uczestnika z kategorią „dziecko”. */
 function parseChildAge(raw) {
@@ -431,18 +393,6 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     }
   }
 
-  if (participants.length === 0) {
-    const adultSpotsLeft = classData.max_spots - (classData.adult_taken || 0);
-    const childSpotsLeft = (classData.class_type === 'adult_and_child')
-      ? (classData.max_child_spots - (classData.child_taken || 0)) : 0;
-    return res.render('user/book', {
-      title: `Zapis: ${classData.name}`, classData,
-      adultSpotsLeft, childSpotsLeft,
-      user: req.user, error: 'Musisz zapisać co najmniej jedną osobę.',
-      notOpen: false, full: false
-    });
-  }
-
   // Policz ile miejsc z której puli potrzebujemy
   const adultsNeeded = participants.filter(p => p.ageCategory === 'adult').length;
   const childrenNeeded = participants.filter(p => p.ageCategory === 'child').length;
@@ -498,11 +448,18 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
   }
 
   try {
-    // Utwórz rezerwację z uczestnikami
-    BookingModel.createWithParticipants(req.user.id, classData.id, participants);
+    // Miejsca są liczone jeszcze raz w transakcji zapisu: to ona rozstrzyga, a sprawdzenie wyżej daje tylko czytelny komunikat.
+    BookingModel.book(req.user.id, classData.id, participants);
 
     return res.redirect('/dashboard?success=Zapisano+pomyślnie!');
   } catch (err) {
+    if (err instanceof SpotsError) {
+      return renderBookError(
+        err.code === 'NO_CHILD_SPOTS'
+          ? 'Miejsca dla dzieci właśnie się zapełniły. Odśwież stronę i sprawdź dostępność.'
+          : 'Miejsca właśnie się zapełniły. Odśwież stronę i sprawdź dostępność.'
+      );
+    }
     console.error('Błąd zapisu na zajęcia:', err);
     return res.render('user/book', {
       title: `Zapis: ${classData.name}`, classData,
