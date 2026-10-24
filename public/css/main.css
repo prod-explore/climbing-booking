@@ -41,7 +41,6 @@
   --shadow-lg:      0 8px 28px rgba(0,0,0,0.08);
 
   --nav-h:          64px;
-  --eu-bar-h:       28px;
 }
 
 html { scroll-behavior: smooth; }
@@ -334,24 +333,6 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 .nav-toggle.active span:nth-child(2) { opacity: 0; }
 .nav-toggle.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 @media (min-width: 768px) { .nav-toggle { display: none; } }
-
-/* EU bar in navbar */
-.eu-bar {
-  background: var(--bg-dark);
-  border-top: 1px solid rgba(255,255,255,0.08);
-  padding: 4px 0;
-}
-.eu-bar-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: rgba(255,255,255,0.5);
-  letter-spacing: 0.5px;
-}
 
 /* --- HERO --- */
 .hero {
@@ -1185,14 +1166,6 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   margin-bottom: 0.5rem;
 }
 .auth-visual-tagline p { color: rgba(255,255,255,0.5); font-size: 0.95rem; }
-.auth-eu-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(255,255,255,0.4);
-  font-size: 0.8rem;
-  z-index: 1;
-}
 
 .auth-side--form {
   background: #fff;
@@ -1456,34 +1429,6 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 }
 .booking-detail-date { color: var(--text-muted); font-size: 0.8rem; }
 .booking-detail-participants { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* --- EU BANNER (footer) --- */
-.eu-banner {
-  background: #fff;
-  border-top: 1px solid var(--border);
-  padding: 1.5rem 0;
-}
-.eu-banner-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-@media (min-width: 768px) {
-  .eu-banner-inner { flex-direction: row; gap: 2rem; }
-}
-.eu-logos { display: flex; gap: 1.5rem; align-items: center; flex-shrink: 0; }
-.eu-logo-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.eu-logo-text { font-size: 0.65rem; font-weight: 700; text-align: center; color: #555; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.3px; }
-.eu-text { font-size: 0.78rem; color: #666; line-height: 1.6; }
 
 /* --- FOOTER --- */
 .footer-main { background: var(--primary-dark); padding: 3rem 0 1.5rem; }
