@@ -22,9 +22,12 @@ const { appUrl } = require('./utils/appUrl');
 const siteSettings = require('./utils/siteSettings');
 const { startupMessage } = require('./utils/startupMessage');
 const { redactUrl } = require('./utils/redactUrl');
+const { assertStrongSecret } = require('./utils/secrets');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
 const BASE_URL = appUrl();
+// Optional: the key for hashing QR visitors' IP addresses (utils/ipHash.js). Checked like JWT_SECRET when set.
+assertStrongSecret('IP_HASH_SECRET', process.env.IP_HASH_SECRET);
 
 const app = express();
 const PORT = process.env.PORT || 3000;

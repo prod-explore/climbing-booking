@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const { calculateAge } = require('../utils/age');
 const { runMigrations } = require('../migrations/runner');
+const { hashIp, ipHashKey, isHashedIp } = require('../utils/ipHash');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/climbing-booking.db');
 
@@ -51,6 +52,20 @@ function getMondayStr() {
 }
 
 /**
+ * qr_scans used to keep the visitor's IP address in clear. Replaces what is left of those with their keyed hash
+ * (utils/ipHash.js); rows already hashed are left alone, so this is a no-op after the first start.
+ */
+function hashStoredQrIps(db) {
+  if (!ipHashKey()) return;
+  const rows = db.prepare("SELECT id, ip FROM qr_scans WHERE ip IS NOT NULL AND ip <> ''").all()
+    .filter(row => !isHashedIp(row.ip));
+  if (!rows.length) return;
+  const update = db.prepare('UPDATE qr_scans SET ip = ? WHERE id = ?');
+  db.transaction(() => rows.forEach(row => update.run(hashIp(row.ip), row.id)))();
+  console.log(`  ↳ qr_scans: replaced ${rows.length} stored IP address(es) with their hash.`);
+}
+
+/**
  * Inicjalizuje połączenie z bazą i tworzy tabele jeśli nie istnieją
  */
 function initDatabase() {
@@ -63,6 +78,7 @@ function initDatabase() {
   // Uruchom wersjonowany system migracji
   // Każda zmiana schematu = nowy plik src/migrations/00N_opis.sql
   runMigrations(db);
+  hashStoredQrIps(db);
 
   console.log('✅ Baza danych SQLite zainicjalizowana:', DB_PATH);
 
@@ -511,10 +527,11 @@ const WaitingListModel = {
 };
 
 const QrScanModel = {
+  /** Stores a keyed hash of the IP address (utils/ipHash.js), never the address itself. */
   record: (ip, userAgent) =>
     getDb().prepare(
       'INSERT INTO qr_scans (ip, user_agent) VALUES (?, ?)'
-    ).run(ip || '', userAgent || ''),
+    ).run(hashIp(ip), String(userAgent || '').slice(0, 300)),
 
   getCount: () =>
     getDb().prepare('SELECT COUNT(*) as cnt FROM qr_scans').get().cnt
