@@ -24,6 +24,28 @@ function getResend() {
   return resend;
 }
 
+/**
+ * Outside production and without RESEND_API_KEY, messages are printed to the console instead of being sent, so the
+ * app can be tried locally: the login link appears in the terminal. In production a missing key stays an error.
+ */
+function sendsToConsole(env = process.env) {
+  return !env.RESEND_API_KEY && env.NODE_ENV !== 'production';
+}
+
+const consoleMailer = {
+  emails: {
+    async send(message) {
+      console.log(`\n✉️  [RESEND_API_KEY not set: printed, not sent] To: ${message.to.join(', ')}\n` +
+        `    Subject: ${message.subject}\n\n${message.text}\n`);
+      return { data: { id: 'console' }, error: null };
+    }
+  }
+};
+
+function getMailer() {
+  return sendsToConsole() ? consoleMailer : getResend();
+}
+
 // Without EMAIL_FROM the sender is noreply@ on the host the site is served from (APP_URL). Resend only sends from a
 // domain that has been verified, so set EMAIL_FROM explicitly when the mail domain differs from the site's.
 const FROM_ADDRESS  = process.env.EMAIL_FROM  || `Fantastyczne Wspinanie <noreply@${new URL(appUrl()).hostname}>`;
@@ -116,7 +138,7 @@ function magicLinkEmailText(magicLink, isNewUser) {
 }
 
 async function sendMagicLink(email, magicLink, isNewUser = false) {
-  const client = getResend();
+  const client = getMailer();
   const subject = isNewUser
     ? `Aktywuj swoje konto — ${APP_NAME}`
     : `Twój link do logowania — ${APP_NAME}`;
@@ -145,6 +167,10 @@ async function sendMagicLink(email, magicLink, isNewUser = false) {
 }
 
 async function initEmailService() {
+  if (sendsToConsole()) {
+    console.warn('⚠️  RESEND_API_KEY is not set: e-mails are printed to the console (development only).');
+    return;
+  }
   try { getResend(); console.log('✅ Resend email service gotowy'); }
   catch (err) { console.warn('⚠️  Resend:', err.message); }
 }
@@ -210,7 +236,7 @@ function participantRemovedText(participantName, className, classDate) {
 }
 
 async function sendParticipantRemovedEmail(toEmail, participantName, className, classDate) {
-  const client = getResend();
+  const client = getMailer();
   const { data, error } = await client.emails.send({
     from:     FROM_ADDRESS,
     to:       [toEmail],
@@ -301,7 +327,7 @@ function waitingListPromotedText(firstName, className, classDate) {
 }
 
 async function sendWaitingListPromotedEmail(toEmail, firstName, className, classDate, dashboardLink) {
-  const client = getResend();
+  const client = getMailer();
   const { data, error } = await client.emails.send({
     from:     FROM_ADDRESS,
     to:       [toEmail],
