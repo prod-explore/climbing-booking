@@ -198,3 +198,42 @@ describe('createWindowLimiter', () => {
     expect(limiter.take('a')).toBe(true);
   });
 });
+
+describe('session cookie', () => {
+  const jwt = require('jsonwebtoken');
+  const { setAuthCookie } = require('../middleware/auth');
+
+  function cookieFor(env) {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = env;
+    const res = { cookie: jest.fn() };
+    try {
+      setAuthCookie(res, { id: 1, email: 'a@example.com', is_admin: 0 });
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+    return res.cookie.mock.calls[0][2];
+  }
+
+  test('is HttpOnly and SameSite=Lax, and Secure in production', () => {
+    expect(cookieFor('production')).toMatchObject({ httpOnly: true, secure: true, sameSite: 'lax' });
+    expect(cookieFor('development')).toMatchObject({ httpOnly: true, secure: false, sameSite: 'lax' });
+  });
+
+  test('a session token signed with another algorithm is not accepted', async () => {
+    const { id, email } = makeUser();
+    const forged = jwt.sign({ userId: id, email, isAdmin: false }, process.env.JWT_SECRET, { algorithm: 'HS512' });
+
+    const res = await request(app).get('/dashboard').set('Cookie', `authToken=${forged}`);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toMatch(/^\/login/);
+  });
+
+  test('a token signed with HS256 and the secret is accepted', async () => {
+    const { id, email } = makeUser();
+    const valid = jwt.sign({ userId: id, email, isAdmin: false }, process.env.JWT_SECRET, { algorithm: 'HS256' });
+
+    const res = await request(app).get('/login').set('Cookie', `authToken=${valid}`);
+    expect(res.status).toBe(302); // a logged-in visitor is sent on from the login page
+  });
+});
