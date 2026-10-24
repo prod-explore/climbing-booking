@@ -249,11 +249,12 @@ const ClassModel = {
 
   create: (data) =>
     getDb().prepare(`
-      INSERT INTO classes (name, description, start_time, duration_min, class_type, max_spots, max_child_spots, instructor, child_instructor, category, color, waiting_list_enabled, max_waiting_spots)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO classes (name, description, start_time, duration_min, class_type, max_spots, max_child_spots, instructor, child_instructor, instructor_id, child_instructor_id, category, color, waiting_list_enabled, max_waiting_spots)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(data.name, data.description, data.startTime, data.durationMin || 90,
            data.classType || 'adult_only', data.maxSpots, data.maxChildSpots || 0,
-           data.instructor, data.childInstructor || '', data.category || 'adults',
+           data.instructor, data.childInstructor || '',
+           data.instructorId || null, data.childInstructorId || null, data.category || 'adults',
            data.color || '#6366f1',
            data.waitingListEnabled ? 1 : 0,
            data.maxWaitingSpots || 10),
@@ -261,11 +262,13 @@ const ClassModel = {
   update: (id, data) =>
     getDb().prepare(`
       UPDATE classes SET name=?, description=?, start_time=?, duration_min=?,
-        class_type=?, max_spots=?, max_child_spots=?, instructor=?, child_instructor=?, category=?, color=?,
+        class_type=?, max_spots=?, max_child_spots=?, instructor=?, child_instructor=?,
+        instructor_id=?, child_instructor_id=?, category=?, color=?,
         waiting_list_enabled=?, max_waiting_spots=? WHERE id=?
     `).run(data.name, data.description, data.startTime, data.durationMin,
            data.classType, data.maxSpots, data.maxChildSpots || 0,
-           data.instructor, data.childInstructor || '', data.category,
+           data.instructor, data.childInstructor || '',
+           data.instructorId || null, data.childInstructorId || null, data.category,
            data.color || '#6366f1',
            data.waitingListEnabled ? 1 : 0,
            data.maxWaitingSpots || 10,
@@ -309,7 +312,8 @@ const ClassModel = {
       'SELECT 1 FROM classes WHERE name = ? AND start_time = ?'
     ).get(name, startTime),
 
-  getByInstructorText: (text) =>
+  /** Classes where the account is the main or the children's instructor (classes.instructor_id, migration 008). */
+  getByInstructorId: (userId) =>
     getDb().prepare(`
       SELECT c.*,
         (SELECT COUNT(*) FROM participants p
@@ -319,9 +323,16 @@ const ClassModel = {
           JOIN bookings b ON p.booking_id = b.id
           WHERE b.class_id = c.id AND p.age_category = 'child') as child_taken
       FROM classes c
-      WHERE instructor LIKE ? OR child_instructor LIKE ?
+      WHERE c.instructor_id = ? OR c.child_instructor_id = ?
       ORDER BY start_time DESC
-    `).all('%' + text + '%', '%' + text + '%')
+    `).all(userId, userId),
+
+  /** Keeps the display name of linked classes in step with the account's first name. */
+  syncInstructorName: (userId, name) => {
+    const db = getDb();
+    db.prepare('UPDATE classes SET instructor = ? WHERE instructor_id = ?').run(name, userId);
+    db.prepare('UPDATE classes SET child_instructor = ? WHERE child_instructor_id = ?').run(name, userId);
+  }
 };
 
 const BookingModel = {

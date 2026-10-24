@@ -1,0 +1,21 @@
+<%#
+  Instructor picker for the class form. Locals: name (form field), column ('instructor' or 'child_instructor'),
+  classData (database columns, or null), instructors (accounts with is_instructor = 1).
+  A class whose old free-text instructor matched no account (migration 008) offers to keep that text as it is.
+%>
+<%
+  const selectedId = classData ? classData[column + '_id'] : null;
+  const legacyName = classData && !selectedId ? (classData[column] || '') : '';
+  const sameFirstName = name => instructors.filter(i => i.first_name === name).length > 1;
+%>
+<select name="<%= name %>" class="form-input form-select">
+  <option value="">— nie przypisano —</option>
+  <% if (legacyName) { %>
+    <option value="legacy" selected><%= legacyName %> (bez konta instruktora)</option>
+  <% } %>
+  <% instructors.forEach(function (inst) { %>
+    <option value="<%= inst.id %>" <%= String(selectedId) === String(inst.id) ? 'selected' : '' %>>
+      <%= inst.first_name %><%= sameFirstName(inst.first_name) ? ' (' + inst.email + ')' : '' %>
+    </option>
+  <% }) %>
+</select>

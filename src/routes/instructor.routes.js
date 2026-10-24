@@ -12,15 +12,14 @@ const { requireInstructor } = require('../middleware/auth');
 // GET /instructor — Dashboard (lista przypisanych zajęć)
 // ============================================================
 router.get('/instructor', requireInstructor, (req, res) => {
-  const instructorName = req.user.first_name;
   let fullName = req.user.first_name;
   if (req.user.last_name) {
     fullName += ' ' + req.user.last_name;
   }
-  
-  // Pobieramy zajęcia po imieniu (lub imieniu i nazwisku)
-  let classes = ClassModel.getByInstructorText(instructorName);
-  
+
+  // Classes linked to this account (classes.instructor_id / child_instructor_id), never matched by name.
+  const classes = ClassModel.getByInstructorId(req.user.id);
+
   res.render('instructor/dashboard', {
     title: 'Panel Instruktora',
     classes,
@@ -36,11 +35,9 @@ router.get('/instructor/classes/:id/attendance', requireInstructor, (req, res) =
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/instructor?error=Nie+znaleziono+zajęć');
 
-  // Weryfikacja czy instruktor faktycznie ma przypisane te zajęcia
-  const instructorName = req.user.first_name;
-  const isAssigned = (classData.instructor && classData.instructor.includes(instructorName)) || 
-                     (classData.child_instructor && classData.child_instructor.includes(instructorName));
-                     
+  // Only the instructors linked to this class (or an admin) may see its participants.
+  const isAssigned = classData.instructor_id === req.user.id || classData.child_instructor_id === req.user.id;
+
   if (!isAssigned && !req.user.is_admin) {
     return res.redirect('/instructor?error=Brak dostępu do tych zajęć');
   }
