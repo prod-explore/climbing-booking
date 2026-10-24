@@ -73,7 +73,7 @@ scripts/seed-demo.js  sample data for a local database
 **Administrators**
 - Creating, editing, cancelling and archiving classes; copying the current week's classes one or more weeks ahead; past weeks are archived automatically.
 - Participant lists with removal (the person who booked gets an e-mail) and the waiting list; approval of minors' accounts.
-- Operator and venue details and an optional funding note (`/admin/settings`); a count of visits from the QR code on printed leaflets (`/qr`).
+- Operator and venue details and an optional funding note (`/admin/settings`); a count of visits from the QR code on printed leaflets (`/qr`), which stores an HMAC of the visitor's IP address, never the address (key: `IP_HASH_SECRET`, or derived from `JWT_SECRET`).
 
 **E-mail** (Resend): the login link, a notice when the admin removes a participant, and a notice when the waiting list books you.
 
@@ -211,6 +211,7 @@ The quick start at the top runs it in development mode (Node.js 22 or newer). Co
 - `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated): the accounts are created on start.
 - `RESEND_API_KEY` and `EMAIL_FROM`: required in production. The sender defaults to `noreply@` on the host of `APP_URL`, and Resend only sends from a verified domain.
 - `CONTACT_EMAIL`: the public contact address on the pages and in the e-mails.
+- `IP_HASH_SECRET` (optional): the key for hashing QR visitors' IP addresses; without it a key is derived from `JWT_SECRET`.
 
 After the first admin login, fill in the operator and venue details under *Ustawienia* (`/admin/settings`).
 
