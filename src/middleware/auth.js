@@ -13,6 +13,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error('FATAL: JWT_SECRET is not set in .env');
 assertStrongSecret('JWT_SECRET', JWT_SECRET);
 
+// Sessions are signed and checked with exactly one algorithm: a token signed any other way is not accepted.
+const JWT_ALGORITHM = 'HS256';
+
 /**
  * Generuje kryptograficznie bezpieczny token magic linku
  */
@@ -43,7 +46,7 @@ function createSessionToken(user) {
       isAdmin: user.is_admin === 1
     },
     JWT_SECRET,
-    { expiresIn: '90d' } // 90 dni (3 miesiące)
+    { algorithm: JWT_ALGORITHM, expiresIn: '90d' } // 90 dni (3 miesiące)
   );
 }
 
@@ -60,7 +63,7 @@ function loadUser(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: [JWT_ALGORITHM] });
     const user = UserModel.findById(payload.userId);
 
     if (!user) {
