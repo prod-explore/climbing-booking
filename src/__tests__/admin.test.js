@@ -93,3 +93,25 @@ describe('POST /admin/classes', () => {
     expect(saved.description).toBe(description);
   });
 });
+
+describe('POST /admin/login', () => {
+  beforeEach(() => sendMagicLink.mockClear());
+
+  test('answers an unknown address exactly like an admin address, and sends nothing', async () => {
+    const unknown = await request(app).post('/admin/login').type('form').send({ email: 'someone@example.com' });
+    expect(sendMagicLink).not.toHaveBeenCalled();
+
+    const known = await request(app).post('/admin/login').type('form').send({ email: 'admin@example.com' });
+    expect(sendMagicLink).toHaveBeenCalledTimes(1);
+    expect(sendMagicLink.mock.calls[0][0]).toBe('admin@example.com');
+
+    expect(unknown.status).toBe(known.status);
+    expect(unknown.text).toBe(known.text);
+  });
+
+  test('still rejects a malformed address', async () => {
+    const res = await request(app).post('/admin/login').type('form').send({ email: 'not-an-address' });
+    expect(res.text).toContain('Podaj prawidłowy adres e-mail.');
+    expect(sendMagicLink).not.toHaveBeenCalled();
+  });
+});

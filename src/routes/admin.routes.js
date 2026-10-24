@@ -71,27 +71,25 @@ router.get('/admin/login', (req, res) => {
 // ============================================================
 router.post('/admin/login', adminLoginLimiter, async (req, res) => {
   const { email, website } = req.body;
+  const render = (extra) => res.render('admin/login', { title: 'Panel Admina — Logowanie', error: null, success: null, ...extra });
+  // The same answer whether or not the address belongs to an administrator: the form does not tell who the admins are.
+  const SENT = 'Jeśli to adres administratora, wysłaliśmy na niego link logowania. Sprawdź skrzynkę!';
 
   // Honeypot check
   if (website) {
     console.warn(`[HONEYPOT] Bot detected from ${req.ip} in admin login form`);
-    return res.render('admin/login', {
-      title: 'Panel Admina — Logowanie',
-      error: null,
-      success: `Link logowania wysłany na podany adres. Sprawdź skrzynkę!`
-    });
+    return render({ success: SENT });
   }
 
-  const normalizedEmail = email ? validator.normalizeEmail(email) : '';
-  const isValidAdmin = ADMIN_EMAILS.some(e => validator.normalizeEmail(e) === normalizedEmail);
+  if (typeof email !== 'string' || !validator.isEmail(email)) {
+    return render({ error: 'Podaj prawidłowy adres e-mail.' });
+  }
 
-  // Weryfikuj że to właściwy adres admina
-  if (!email || !isValidAdmin) {
-    return res.render('admin/login', {
-      title: 'Panel Admina — Logowanie',
-      error: `Podany adres nie jest adresem administratora.`,
-      success: null
-    });
+  const normalizedEmail = validator.normalizeEmail(email);
+  const isValidAdmin = ADMIN_EMAILS.some(e => validator.normalizeEmail(e) === normalizedEmail);
+  if (!isValidAdmin) {
+    console.warn(`Admin login requested for an address that is not an admin, from ${req.ip}`);
+    return render({ success: SENT });
   }
 
   try {
@@ -99,19 +97,10 @@ router.post('/admin/login', adminLoginLimiter, async (req, res) => {
     MagicTokenModel.cleanExpired();
     const { magicLink } = createMagicLink(adminUser.id);
     await sendMagicLink(normalizedEmail, magicLink, false);
-
-    return res.render('admin/login', {
-      title: 'Panel Admina — Logowanie',
-      error: null,
-      success: `Link logowania wysłany na podany adres. Sprawdź skrzynkę!`
-    });
+    return render({ success: SENT });
   } catch (err) {
     console.error('Błąd wysyłki magic link (admin):', err);
-    return res.render('admin/login', {
-      title: 'Panel Admina — Logowanie',
-      error: 'Nie udało się wysłać e-maila. Sprawdź konfigurację RESEND_API_KEY.',
-      success: null
-    });
+    return render({ error: 'Nie udało się wysłać e-maila. Spróbuj ponownie.' });
   }
 });
 
