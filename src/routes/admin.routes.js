@@ -17,6 +17,8 @@ const { sendMagicLink, sendParticipantRemovedEmail } = require('../services/emai
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { calculateAge } = require('../utils/age');
 const siteSettings = require('../utils/siteSettings');
+const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('../utils/calendarWeek');
+const { attendanceList, bookingsWithParticipants } = require('../services/attendance');
 
 const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL);
 
@@ -166,49 +168,12 @@ router.post('/admin/settings', requireAdmin, (req, res) => {
 // GET /admin/calendar — Kalendarz tygodniowy (widok admina)
 // ============================================================
 
-/** Oblicza dynamiczny zakres godzin siatki ±1h od skrajnych zajęć w tygodniu. */
-function computeGridHours(weekClasses) {
-  if (!weekClasses || !weekClasses.length) return { START_HOUR: 8, END_HOUR: 21 };
-  let minH = 23, maxH = 0;
-  weekClasses.forEach(c => {
-    const st = new Date(c.start_time);
-    const etMin = st.getHours() * 60 + st.getMinutes() + (c.duration_min || 60);
-    const etH = Math.ceil(etMin / 60);
-    if (st.getHours() < minH) minH = st.getHours();
-    if (etH > maxH) maxH = etH;
-  });
-  return {
-    START_HOUR: Math.max(6, minH - 1),
-    END_HOUR:   Math.min(23, maxH + 1)
-  };
-}
-
-/** Oblicza weekStart i weekEnd dla danego weekOffset (pon=0). */
-function getWeekBounds(weekOffset) {
-  const today = new Date();
-  const dow = (today.getDay() + 6) % 7;
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - dow + (weekOffset || 0) * 7);
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-  return { weekStart, weekEnd };
-}
-
 router.get('/admin/calendar', requireAdmin, (req, res) => {
-  let weekOffset = parseInt(req.query.week || '0', 10);
-  if (isNaN(weekOffset)) weekOffset = 0;
-  weekOffset = Math.max(-52, Math.min(52, weekOffset));
+  const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
   const pendingConsents = UserModel.getPendingConsents().length;
 
-  const allClasses = ClassModel.getAll();
-  const weekClasses = allClasses
-    .filter(c => {
-      const st = new Date(c.start_time);
-      return st >= weekStart && st <= weekEnd;
-    })
+  const weekClasses = inWeek(ClassModel.getAll(), { weekStart, weekEnd })
     .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
 
   const { START_HOUR, END_HOUR } = computeGridHours(weekClasses);
@@ -493,27 +458,11 @@ router.get('/admin/classes/:id/attendance', requireAdmin, (req, res) => {
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/admin?error=Nie+znaleziono+zajęć');
 
-  const bookings = BookingModel.getByClass(classData.id);
-  const bookingsWithParticipants = bookings.map(b => ({
-    ...b,
-    participants: BookingModel.getParticipantsByBooking(b.booking_id)
-  }));
-  const allParticipants = bookingsWithParticipants.flatMap(b =>
-    b.participants.map(p => ({ ...p, bookerEmail: b.email, bookedAt: b.created_at }))
-  );
-
-  // Sort: adults ('adult') first, then children ('child')
-  allParticipants.sort((a, b) => {
-    if (a.age_category !== b.age_category) {
-      return a.age_category === 'adult' ? -1 : 1;
-    }
-    // secondary sort: booking date ascending
-    return new Date(a.bookedAt) - new Date(b.bookedAt);
-  });
+  const { bookings, allParticipants } = attendanceList(classData.id);
 
   res.render('admin/attendance', {
     title: `Lista: ${classData.name}`,
-    classData, bookings: bookingsWithParticipants, allParticipants, user: req.user,
+    classData, bookings, allParticipants, user: req.user,
     waitingList: WaitingListModel.getByClass(classData.id),
     waitingCount: WaitingListModel.countByClass(classData.id),
     success: req.query.success || null,
@@ -706,10 +655,7 @@ router.get('/admin/classes/:id/waiting-list', requireAdmin, (req, res) => {
   res.render('admin/attendance', {
     title: `Lista rezerwowa: ${classData.name}`,
     classData,
-    bookings: BookingModel.getByClass(classData.id).map(b => ({
-      ...b,
-      participants: BookingModel.getParticipantsByBooking(b.booking_id)
-    })),
+    bookings: bookingsWithParticipants(classData.id),
     allParticipants: [],
     waitingList,
     waitingCount,

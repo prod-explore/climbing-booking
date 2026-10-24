@@ -5,7 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { ClassModel, BookingModel } = require('../models/database');
+const { ClassModel } = require('../models/database');
+const { attendanceList } = require('../services/attendance');
 const { requireInstructor } = require('../middleware/auth');
 
 // ============================================================
@@ -42,27 +43,11 @@ router.get('/instructor/classes/:id/attendance', requireInstructor, (req, res) =
     return res.redirect('/instructor?error=Brak dostępu do tych zajęć');
   }
 
-  const bookings = BookingModel.getByClass(classData.id);
-  const bookingsWithParticipants = bookings.map(b => ({
-    ...b,
-    participants: BookingModel.getParticipantsByBooking(b.booking_id)
-  }));
-  const allParticipants = bookingsWithParticipants.flatMap(b =>
-    b.participants.map(p => ({ ...p, bookerEmail: b.email, bookedAt: b.created_at }))
-  );
-
-  // Sort: adults ('adult') first, then children ('child')
-  allParticipants.sort((a, b) => {
-    if (a.age_category !== b.age_category) {
-      return a.age_category === 'adult' ? -1 : 1;
-    }
-    // secondary sort: booking date ascending
-    return new Date(a.bookedAt) - new Date(b.bookedAt);
-  });
+  const { bookings, allParticipants } = attendanceList(classData.id);
 
   res.render('instructor/attendance', {
     title: `Lista: ${classData.name}`,
-    classData, bookings: bookingsWithParticipants, allParticipants, user: req.user
+    classData, bookings, allParticipants, user: req.user
   });
 });
 

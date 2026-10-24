@@ -11,6 +11,7 @@ const { requireAuth, requireProfile } = require('../middleware/auth');
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { apiLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
+const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('../utils/calendarWeek');
 
 /**
  * Czy można się zapisać na zajęcia względem czasu (bez okna „X dni przed”).
@@ -21,46 +22,13 @@ function isBookingOpen(startTime) {
   return classDate > new Date();
 }
 
-/** Oblicza dynamiczny zakres godzin siatki ±1h od skrajnych zajęć w tygodniu. */
-function computeGridHours(weekClasses) {
-  if (!weekClasses || !weekClasses.length) return { START_HOUR: 8, END_HOUR: 21, SLOT_MIN: 30 };
-  let minH = 23, maxH = 0;
-  weekClasses.forEach(c => {
-    const st = new Date(c.start_time);
-    const etMin = st.getHours() * 60 + st.getMinutes() + (c.duration_min || 60);
-    const etH = Math.ceil(etMin / 60);
-    if (st.getHours() < minH) minH = st.getHours();
-    if (etH > maxH) maxH = etH;
-  });
-  return {
-    START_HOUR: Math.max(6, minH - 1),
-    END_HOUR:   Math.min(23, maxH + 1),
-    SLOT_MIN:   30
-  };
-}
-
-/** Oblicza weekStart i weekEnd dla danego weekOffset (pon=0). */
-function getWeekBounds(weekOffset) {
-  const today = new Date();
-  const dow = (today.getDay() + 6) % 7;
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - dow + (weekOffset || 0) * 7);
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
-  return { weekStart, weekEnd };
-}
-
 // ============================================================
 // GET / — Landing page (publiczny)
 // ============================================================
 router.get('/', (req, res) => {
   const { weekStart, weekEnd } = getWeekBounds(0);
 
-  const allClasses = ClassModel.getUpcoming();
-  const weekClasses = allClasses
-    .filter(c => { const st = new Date(c.start_time); return st >= weekStart && st <= weekEnd; })
+  const weekClasses = inWeek(ClassModel.getUpcoming(), { weekStart, weekEnd })
     .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
 
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(weekClasses);
@@ -77,14 +45,10 @@ router.get('/', (req, res) => {
 // GET /calendar — Publiczny kalendarz zajęć
 // ============================================================
 router.get('/calendar', (req, res) => {
-  let weekOffset = parseInt(req.query.week || '0', 10);
-  if (isNaN(weekOffset)) weekOffset = 0;
-  weekOffset = Math.max(-52, Math.min(52, weekOffset));
+  const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
 
-  const allClasses = ClassModel.getUpcoming();
-  const weekClasses = allClasses
-    .filter(c => { const st = new Date(c.start_time); return st >= weekStart && st <= weekEnd; })
+  const weekClasses = inWeek(ClassModel.getUpcoming(), { weekStart, weekEnd })
     .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
 
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(weekClasses);
@@ -121,9 +85,7 @@ router.post('/consent/request', requireAuth, (req, res) => {
 // GET /dashboard — Panel użytkownika
 // ============================================================
 router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
-  let weekOffset = parseInt(req.query.week || '0', 10);
-  if (isNaN(weekOffset)) weekOffset = 0;
-  weekOffset = Math.max(-52, Math.min(52, weekOffset));
+  const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
 
   const allUpcoming = ClassModel.getUpcoming();
@@ -143,10 +105,7 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
   }));
 
   // Obliczamy ramy czasowe na podstawie WSZYSTKICH zajęć w danym tygodniu (żeby siatka wyglądała identycznie jak na głównej)
-  const allWeekClasses = allUpcoming.filter(c => {
-    const st = new Date(c.start_time);
-    return st >= weekStart && st <= weekEnd;
-  });
+  const allWeekClasses = inWeek(allUpcoming, { weekStart, weekEnd });
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(allWeekClasses);
 
   // Zajęcia tygodniowe (dostępne) dla kalendarza
