@@ -12,9 +12,10 @@
           <span class="hero-title--accent">Wspinanie</span>
         </h1>
         <p class="hero-subtitle">
-          Darmowe zajęcia wspinaczkowe dla uczestników projektu.<br>
+          Zapisy na zajęcia wspinaczkowe online.<br>
           Zarządzaj swoimi rezerwacjami na zajęcia wspinaczkowe.
         </p>
+        <% if (site.funding_note) { %><p class="hero-subtitle"><%= site.funding_note %></p><% } %>
         <div class="hero-actions">
           <% if (typeof user !=='undefined' && user) { %>
             <a href="/dashboard" class="btn btn--primary btn--lg">Przejdź do panelu →</a>
@@ -204,7 +205,7 @@
           <li>
             <strong>Osoba niepełnoletnia:</strong> żeby osoba niepełnoletnia mogła samodzielnie
             rejestrować się na zajęcia, musi najpierw dostarczyć podpisany przez rodzica
-            formularz unijny dostępny w recepcji. Następnie zostanie zaakceptowana przez administratora.
+            formularz zgody dostępny w recepcji. Następnie zostanie zaakceptowana przez administratora.
             Rodzic lub pełnoletni opiekun może zapisać dziecko samodzielnie przez swoje konto
             — bez konieczności dodatkowej zgody.
           </li>

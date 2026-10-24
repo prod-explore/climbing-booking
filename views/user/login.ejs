@@ -8,12 +8,9 @@
         <span class="auth-brand-label">Zajęcia wspinaczkowe</span>
       </a>
       <div class="auth-visual-tagline">
-        <h2>Wspinaj się<br>za darmo</h2>
-        <p>Projekt dofinansowany z funduszy Unii Europejskiej</p>
-      </div>
-      <div class="auth-eu-badge">
-        <span>🇪🇺</span>
-        <span>Finansowane z UE</span>
+        <h2>Wspinaj się<br>z nami</h2>
+        <p>Zapisy na zajęcia wspinaczkowe online.</p>
+        <% if (site.funding_note) { %><p><%= site.funding_note %></p><% } %>
       </div>
     </div>
   </div>
