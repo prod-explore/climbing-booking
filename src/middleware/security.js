@@ -98,7 +98,10 @@ const helmetConfig = helmet({
       connectSrc: ["'self'", 'https://maps.googleapis.com']
     }
   },
-  crossOriginEmbedderPolicy: false // Wymagane dla Google Maps embed
+  crossOriginEmbedderPolicy: false, // Wymagane dla Google Maps embed
+  // Not helmet's default `no-referrer`: under it browsers send `Origin: null` on every form POST, and the same-origin
+  // check (sameOrigin.js) would refuse all of them. `same-origin` still sends no Referer to other sites.
+  referrerPolicy: { policy: 'same-origin' }
 });
 
 /**

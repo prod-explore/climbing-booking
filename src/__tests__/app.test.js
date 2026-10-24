@@ -59,6 +59,14 @@ describe('same-origin check', () => {
     expect(res.status).toBe(403);
   });
 
+  test('Origin: null (sandboxed frame, or a page served with no-referrer) is rejected', async () => {
+    const res = await request(app)
+      .post('/auth/logout')
+      .set('Host', 'booking.example.com')
+      .set('Origin', 'null');
+    expect(res.status).toBe(403);
+  });
+
   test('GET requests are never checked', async () => {
     const res = await request(app).get('/healthz').set('Origin', 'https://evil.example.net');
     expect(res.status).toBe(200);
@@ -78,5 +86,12 @@ describe('security headers', () => {
     const res = await request(app).get('/nope');
     expect(res.headers['content-security-policy']).toBeDefined();
     expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  test('the referrer policy lets browsers send a real Origin on same-site form posts', async () => {
+    // Under `no-referrer` (helmet's default) browsers send `Origin: null` on every form POST,
+    // which the same-origin check refuses: no form on the site would work.
+    const res = await request(app).get('/nope');
+    expect(res.headers['referrer-policy']).toBe('same-origin');
   });
 });
