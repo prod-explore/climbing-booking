@@ -53,7 +53,7 @@ scripts/seed-demo.js  sample data for a local database
 - **Why does the e-mail link only show a button?** Mail scanners and link previews open the URLs in a message before the person does. If opening the link logged you in (and spent the one-time token), the token could be gone by the time of the real click. `GET /auth/verify` therefore only renders a confirmation page; `POST /auth/verify` checks and spends the token in one transaction and sets the session. The token is also kept out of the access log.
 - **Why are the places counted inside the booking transaction?** The limit of each pool (adults, children) is a rule about the data, so `BookingModel.book` enforces it under `BEGIN IMMEDIATE` and throws `SpotsError`, instead of relying on the route checking first and inserting next. The route's own check only produces a readable message.
 - **Why are the operator and venue details in the database?** Who the data controller is, their tax number (NIP) and where the classes take place differ per deployment and change over time, so they are not written in the templates. They are rows of `site_settings`, edited in the admin panel (`/admin/settings`, NIP checked with its control digit); the footer, privacy policy, terms and the map print them, and until they are filled in the pages show a visible placeholder and the admin dashboard says so. Likewise `og:url`, `og:image` and the canonical link are built from `APP_URL`, so a link shared on Messenger or Facebook leads to the real site.
-- **How did the schema evolve?** Through seven numbered migrations, following the school's needs: user verification and parental consent for 16–17-year-olds, an instructor role, classes with a separate children's pool and children's instructor, colours and an archive, the waiting list, and the site settings.
+- **How did the schema evolve?** Through numbered migrations, following the school's needs: user verification and parental consent for 16–17-year-olds, an instructor role, classes with a separate children's pool and children's instructor, colours and an archive, the waiting list, the site settings, and finally foreign keys from classes to instructor accounts. Until migration 008 a class named its instructor in free text and the panel matched it against first names, so "Jan" also saw "Janina"'s classes; the migration links existing classes only where the name matches exactly one account and leaves the rest for an administrator to pick.
 
 ---
 
@@ -68,7 +68,7 @@ scripts/seed-demo.js  sample data for a local database
 
 **Instructors**
 - Accounts come from configuration (`INSTRUCTORS`), not from the database or the code.
-- An instructor sees the classes assigned to them (as the main or the children's instructor) and their participant lists, which can be copied as text or printed.
+- A class points at instructor accounts (main and children's instructor, picked from a list in the class form); an instructor sees only the classes linked to their account and their participant lists, which can be copied as text or printed.
 
 **Administrators**
 - Creating, editing, cancelling and archiving classes; copying the current week's classes one or more weeks ahead; past weeks are archived automatically.
@@ -119,6 +119,8 @@ erDiagram
         INTEGER max_child_spots
         TEXT instructor
         TEXT child_instructor
+        INTEGER instructor_id FK
+        INTEGER child_instructor_id FK
         TEXT category
         TEXT color
         INTEGER is_cancelled
@@ -172,9 +174,10 @@ erDiagram
     bookings ||--o{ participants : "groups"
     classes ||--o{ waiting_list : "queues"
     users ||--o{ waiting_list  : "joins"
+    users |o--o{ classes       : "instructs"
 ```
 
-`bookings` and `waiting_list` are also unique per `(class_id, user_id)`: one booking and one waiting-list place per person and class.
+`bookings` and `waiting_list` are also unique per `(class_id, user_id)`: one booking and one waiting-list place per person and class. `classes.instructor_id` and `child_instructor_id` both reference `users`; the `instructor` and `child_instructor` text columns keep the display name.
 
 ---
 
@@ -191,7 +194,8 @@ src/migrations/
 ├── 004_family_classes.sql
 ├── 005_class_color_archive.sql
 ├── 006_waiting_list.sql
-└── 007_site_settings.sql
+├── 007_site_settings.sql
+└── 008_class_instructor_ids.sql
 ```
 
 ---
@@ -234,7 +238,8 @@ There are more than 140 tests in 16 files (jest reported 141 when this README wa
 - **Login tokens**: expiry (including a token that expired a minute ago, the same day), single use.
 - **Login flow over HTTP**: the e-mail link does not spend the token, `POST /auth/verify` logs in once, the `next` parameter cannot leave the site, the per-address limit, the session cookie flags and the signing algorithm.
 - **HTTP**: health check, error pages, redirects of protected pages, security headers (including the referrer policy the same-origin check depends on), and the same-origin check on state-changing requests.
-- **Admin**: a rejected class form is shown again with what was typed, a long description is kept, the admin login does not reveal which addresses are admins.
+- **Admin**: a rejected class form is shown again with what was typed, a long description is kept, instructors are picked from their accounts (an unknown id is refused, an old unlinked name can be kept), the admin login does not reveal which addresses are admins.
+- **Instructor access**: "Jan" sees neither "Janina"'s classes nor her participants' e-mail addresses; migration 008 links only unambiguous names.
 - **Views**: server data embedded in `<script>` elements stays inert, no view uses inline event handlers (the CSP blocks them), the calendar modals put names in as text.
 - **Site settings**: validation (NIP control digit), placeholders for what is not filled in, the admin-only page, and that the public pages print what was saved; `og:url`, `og:image` and the canonical link come from `APP_URL`.
 - **Configuration and e-mail**: the secret and `APP_URL` checks; parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address on the pages and in the e-mails (Resend mocked); printing instead of sending outside production; the access log hides login tokens.
@@ -267,6 +272,5 @@ Dependabot proposes weekly updates for npm packages, the Docker base image and t
 
 - **The CSP allows inline `<script>` blocks** (`'unsafe-inline'` in `script-src`): the views keep their page scripts inline. Inline event handler attributes are already blocked (`script-src-attr 'none'`, and a test keeps them out); moving the script blocks to files under `public/js/` would allow dropping `'unsafe-inline'`.
 - **A session is a 90-day JWT** that cannot be revoked before it expires; logging out clears the cookie only. Server-side sessions (a session table) would fix it.
-- **Instructors are matched to classes by first name**: a class's instructor field is free text, and an instructor sees every class whose instructor text contains their first name.
 - **Rate limits live in memory**, so they reset on restart, and the app is a single process by design (SQLite, no shared state).
 - **Input is sanitised twice**: tags are stripped from every body field (`sanitizeBody`) and EJS escapes on output. The second is the one that protects; the first is a legacy of the early versions.
