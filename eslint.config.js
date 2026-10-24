@@ -7,7 +7,7 @@ module.exports = [
   { ignores: ['node_modules/', 'data/', 'coverage/'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.js', 'eslint.config.js'],
+    files: ['src/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
     languageOptions: { sourceType: 'commonjs', globals: globals.node }
   },
   {
