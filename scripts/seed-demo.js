@@ -2,6 +2,7 @@
  * seed-demo.js — fills an empty local database with a week of sample classes, a few bookings and the venue
  * settings, so a fresh clone has something to show. Run: npm run seed (uses DB_PATH like the app).
  * It refuses to touch a database that already has classes, and never runs with NODE_ENV=production.
+ * Instructor accounts: anna, piotr and ola.instruktor@example.com (log in at /login, the link is printed).
  */
 
 'use strict';
@@ -16,6 +17,12 @@ const SAMPLE_CLASSES = [
   { day: 2, time: '16:00', minutes: 120, name: 'Zajęcia rodzinne', type: 'adult_and_child', spots: 10, child: 8, color: '#f59e0b', instructor: 'Anna', childInstructor: 'Ola' },
   { day: 3, time: '17:30', minutes: 90, name: 'Bouldering', type: 'adult_only', spots: 15, color: '#0ea5e9', instructor: 'Piotr' },
   { day: 5, time: '16:00', minutes: 120, name: 'Sobota na ściance', type: 'adult_and_child', spots: 12, child: 10, color: '#ec4899', instructor: 'Anna', childInstructor: 'Ola' }
+];
+
+const SAMPLE_INSTRUCTORS = [
+  ['anna.instruktor@example.com', 'Anna'],
+  ['piotr.instruktor@example.com', 'Piotr'],
+  ['ola.instruktor@example.com', 'Ola']
 ];
 
 const SAMPLE_PEOPLE = [
@@ -38,6 +45,15 @@ function seedDemo() {
     return { created: 0, reason: 'the database already has classes' };
   }
 
+  // Instructor accounts, as INSTRUCTORS would create them; classes are linked to them by id.
+  const instructorIds = {};
+  for (const [email, firstName] of SAMPLE_INSTRUCTORS) {
+    const { user } = UserModel.getOrCreate(email);
+    getDb().prepare("UPDATE users SET first_name = ?, last_name = 'Instruktor', is_instructor = 1, is_verified = 1, age_category = 'adult' WHERE id = ?")
+      .run(firstName, user.id);
+    instructorIds[firstName] = user.id;
+  }
+
   const classIds = SAMPLE_CLASSES.map(c => ClassModel.create({
     name: c.name,
     description: 'Przykładowe zajęcia (dane demonstracyjne).',
@@ -48,6 +64,8 @@ function seedDemo() {
     maxChildSpots: c.child || 0,
     instructor: c.instructor,
     childInstructor: c.childInstructor || '',
+    instructorId: instructorIds[c.instructor],
+    childInstructorId: c.childInstructor ? instructorIds[c.childInstructor] : null,
     category: c.type === 'adult_and_child' ? 'mixed' : 'adults',
     color: c.color,
     waitingListEnabled: true,

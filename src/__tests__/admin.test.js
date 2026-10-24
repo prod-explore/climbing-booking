@@ -9,6 +9,7 @@ process.env.DB_PATH = ':memory:';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret-test-secret-test-secret-1234';
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_EMAILS = 'admin@example.com';
+process.env.INSTRUCTORS = 'anna@example.com:Anna,ola@example.com:Ola';
 
 jest.mock('../services/emailService', () => ({
   initEmailService: jest.fn().mockResolvedValue(undefined),
@@ -91,6 +92,52 @@ describe('POST /admin/classes', () => {
     expect(res.status).toBe(302);
     const saved = ClassModel.getAll().find(c => c.name === 'Długi opis');
     expect(saved.description).toBe(description);
+  });
+});
+
+describe('instructors in the class form', () => {
+  const anna = () => UserModel.findByEmail('anna@example.com');
+
+  test('offers the instructor accounts in a select', async () => {
+    const admin = await loginAsAdmin();
+    const form = await admin.get('/admin/classes/new');
+    expect(form.text).toContain('<select name="instructorId"');
+    expect(form.text).toContain(`<option value="${anna().id}"`);
+    expect(form.text).not.toContain('list="instructors-list"');
+  });
+
+  test('a new class stores the chosen account and shows its first name', async () => {
+    const admin = await loginAsAdmin();
+    await admin.post('/admin/classes').type('form').send({ ...CLASS_FORM, name: 'Z Anną', instructorId: String(anna().id) });
+    const saved = ClassModel.getAll().find(c => c.name === 'Z Anną');
+    expect(saved.instructor_id).toBe(anna().id);
+    expect(saved.instructor).toBe('Anna');
+  });
+
+  test('an id that is not an instructor account is refused', async () => {
+    const admin = await loginAsAdmin();
+    const adminId = UserModel.findByEmail('admin@example.com').id;
+    const res = await admin.post('/admin/classes').type('form').send({ ...CLASS_FORM, name: 'Zły instruktor', instructorId: String(adminId) });
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Wybierz instruktora z listy.');
+    expect(ClassModel.getAll().find(c => c.name === 'Zły instruktor')).toBeUndefined();
+  });
+
+  test('an old free-text instructor without an account can be kept, or replaced by an account', async () => {
+    const admin = await loginAsAdmin();
+    const id = ClassModel.create({
+      name: 'Stara klasa', description: '', startTime: '2030-05-08T18:00', durationMin: 90,
+      classType: 'adult_only', maxSpots: 10, instructor: 'Kasia z dawnych czasów'
+    }).lastInsertRowid;
+
+    const form = await admin.get(`/admin/classes/${id}/edit`);
+    expect(form.text).toContain('<option value="legacy" selected>Kasia z dawnych czasów (bez konta instruktora)</option>');
+
+    await admin.post(`/admin/classes/${id}`).type('form').send({ ...CLASS_FORM, name: 'Stara klasa', instructorId: 'legacy' });
+    expect(ClassModel.getById(id)).toMatchObject({ instructor: 'Kasia z dawnych czasów', instructor_id: null });
+
+    await admin.post(`/admin/classes/${id}`).type('form').send({ ...CLASS_FORM, name: 'Stara klasa', instructorId: String(anna().id) });
+    expect(ClassModel.getById(id)).toMatchObject({ instructor: 'Anna', instructor_id: anna().id });
   });
 });
 

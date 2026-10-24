@@ -53,6 +53,8 @@ function ensureInstructorAccount(rawEmail, firstName) {
     getDb().prepare('UPDATE users SET is_instructor = 1, is_verified = 1, age_category = ?, first_name = ? WHERE id = ?')
       .run('adult', firstName, instructorUser.id);
   }
+  // A renamed instructor (INSTRUCTORS changed) is shown under the new name on the classes linked to the account.
+  ClassModel.syncInstructorName(instructorUser.id, firstName);
 }
 
 // Konta instruktorów pochodzą z konfiguracji (INSTRUCTORS="adres:Imię, adres:Imię"), nie z kodu.
@@ -224,6 +226,27 @@ router.get('/admin/calendar', requireAdmin, (req, res) => {
 });
 
 /**
+ * What the instructor select sends: an instructor account id, '' for nobody, or 'legacy' to keep a class's old
+ * free-text instructor that migration 008 could not link to an account unambiguously.
+ * Returns the stored pair { id, name } or { error } when the id is not an instructor account.
+ */
+function resolveInstructor(raw, legacyName, instructors) {
+  if (raw === undefined || raw === '') return { id: null, name: '' };
+  if (raw === 'legacy') return { id: null, name: legacyName || '' };
+  const user = instructors.find(u => String(u.id) === String(raw));
+  if (!user) return { error: 'Wybierz instruktora z listy.' };
+  return { id: user.id, name: user.first_name };
+}
+
+/** The `${column}` / `${column}_id` pair the class form shows after a failed submit. */
+function submittedInstructor(column, raw, base) {
+  if (typeof raw !== 'string') return { [column]: base[column] || '', [`${column}_id`]: base[`${column}_id`] || null };
+  if (raw === 'legacy') return { [column]: base[column] || '', [`${column}_id`]: null };
+  const id = parseInt(raw, 10);
+  return { [column]: '', [`${column}_id`]: Number.isInteger(id) ? id : null };
+}
+
+/**
  * The class form reads database columns (start_time, max_spots...). After a failed submit it is shown again with what
  * was typed, so the submitted body is mapped to that shape. `base` is the class being edited (it keeps its id).
  */
@@ -243,8 +266,8 @@ function submittedClass(body, base = {}) {
     class_type: text(body.classType, base.class_type || 'adult_only'),
     max_spots: text(body.maxSpots, base.max_spots ?? ''),
     max_child_spots: text(body.maxChildSpots, base.max_child_spots ?? ''),
-    instructor: text(body.instructor, base.instructor || ''),
-    child_instructor: text(body.childInstructor, base.child_instructor || ''),
+    ...submittedInstructor('instructor', body.instructorId, base),
+    ...submittedInstructor('child_instructor', body.childInstructorId, base),
     color: text(body.color, base.color || ''),
     waiting_list_enabled: body.waitingListEnabled ? 1 : 0
   };
@@ -262,7 +285,7 @@ router.get('/admin/classes/new', requireAdmin, (req, res) => {
 // POST /admin/classes — Utwórz
 // ============================================================
 router.post('/admin/classes', requireAdmin, (req, res) => {
-  const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructor, childInstructor, color, waitingListEnabled } = req.body;
+  const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructorId, childInstructorId, color, waitingListEnabled } = req.body;
 
   const instructors = UserModel.getInstructors();
   const renderErr = (msg) => res.render('admin/class-form', {
@@ -295,6 +318,13 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
   // Kolor
   const colorVal = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#6366f1';
 
+  // Instruktorzy
+  const mainInstructor = resolveInstructor(instructorId === 'legacy' ? '' : instructorId, '', instructors);
+  const childInstructor = ct === 'adult_and_child'
+    ? resolveInstructor(childInstructorId === 'legacy' ? '' : childInstructorId, '', instructors)
+    : { id: null, name: '' };
+  if (mainInstructor.error || childInstructor.error) return renderErr(mainInstructor.error || childInstructor.error);
+
   ClassModel.create({
     name: nameTrimmed,
     description: String(description || '').trim().slice(0, 1000),
@@ -303,8 +333,10 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
     classType: ct,
     maxSpots: maxSpotsVal,
     maxChildSpots: maxChildVal,
-    instructor: String(instructor || '').trim().slice(0, 80),
-    childInstructor: ct === 'adult_and_child' ? String(childInstructor || '').trim().slice(0, 80) : '',
+    instructor: mainInstructor.name,
+    childInstructor: childInstructor.name,
+    instructorId: mainInstructor.id,
+    childInstructorId: childInstructor.id,
     category: ct === 'adult_and_child' ? 'mixed' : 'adults',
     color: colorVal,
     waitingListEnabled: !!waitingListEnabled,
@@ -328,7 +360,7 @@ router.get('/admin/classes/:id/edit', requireAdmin, (req, res) => {
 // POST /admin/classes/:id — Aktualizuj
 // ============================================================
 router.post('/admin/classes/:id', requireAdmin, (req, res) => {
-  const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructor, childInstructor, color, waitingListEnabled } = req.body;
+  const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructorId, childInstructorId, color, waitingListEnabled } = req.body;
   const classId = parseInt(req.params.id, 10);
   if (!Number.isInteger(classId) || classId < 1) return res.redirect('/admin?error=Nieprawidłowe+ID+zajęć');
   const classData = ClassModel.getById(classId);
@@ -374,6 +406,13 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
   // Kolor
   const colorVal = /^#[0-9a-fA-F]{6}$/.test(color) ? color : (classData.color || '#6366f1');
 
+  // Instruktorzy
+  const mainInstructor = resolveInstructor(instructorId, classData.instructor, instructors);
+  const childInstructor = ct === 'adult_and_child'
+    ? resolveInstructor(childInstructorId, classData.child_instructor, instructors)
+    : { id: null, name: '' };
+  if (mainInstructor.error || childInstructor.error) return renderErr(mainInstructor.error || childInstructor.error);
+
   ClassModel.update(classId, {
     name: nameTrimmed,
     description: String(description || '').trim().slice(0, 1000),
@@ -382,8 +421,10 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
     classType: ct,
     maxSpots: maxSpotsVal,
     maxChildSpots: maxChildVal,
-    instructor: String(instructor || '').trim().slice(0, 80),
-    childInstructor: ct === 'adult_and_child' ? String(childInstructor || '').trim().slice(0, 80) : '',
+    instructor: mainInstructor.name,
+    childInstructor: childInstructor.name,
+    instructorId: mainInstructor.id,
+    childInstructorId: childInstructor.id,
     category: ct === 'adult_and_child' ? 'mixed' : 'adults',
     color: colorVal,
     waitingListEnabled: !!waitingListEnabled,
@@ -634,6 +675,8 @@ router.post('/admin/clone-week', requireAdmin, (req, res) => {
       maxChildSpots: c.max_child_spots || 0,
       instructor: c.instructor || '',
       childInstructor: c.child_instructor || '',
+      instructorId: c.instructor_id,
+      childInstructorId: c.child_instructor_id,
       category: c.category || 'adults',
       color: /^#[0-9a-fA-F]{6}$/.test(c.color) ? c.color : '#6366f1',
       waitingListEnabled: c.waiting_list_enabled || 0,
