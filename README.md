@@ -259,7 +259,7 @@ Dependabot proposes weekly updates for npm packages, the Docker base image and t
 
 ## Technical stack
 
-- **Runtime and framework**: Node.js 22+, Express 4
+- **Runtime and framework**: Node.js 22+, Express 5
 - **Database**: SQLite through `better-sqlite3`, WAL mode
 - **Views**: EJS, plain CSS and JavaScript
 - **Authentication**: one-time links, JWT session cookie (`jsonwebtoken`)
