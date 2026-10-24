@@ -11,7 +11,7 @@ const validator = require('validator');
 const { parseEmailList, parseInstructors } = require('../utils/accounts');
 
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, SiteSettingsModel, getDb } = require('../models/database');
-const { requireAdmin, setAuthCookie, createMagicLink } = require('../middleware/auth');
+const { requireAdmin, createMagicLink } = require('../middleware/auth');
 const { adminLoginLimiter } = require('../middleware/security');
 const { sendMagicLink, sendParticipantRemovedEmail } = require('../services/emailService');
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
