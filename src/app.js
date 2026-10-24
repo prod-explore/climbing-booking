@@ -1,7 +1,6 @@
 /**
  * app.js — Główny plik aplikacji Express
  * Fantastyczne Wspinanie — System Rejestracji na Zajęcia Wspinaczkowe
- * Projekt dofinansowany z funduszy Unii Europejskiej
  */
 
 require('dotenv').config();
@@ -21,6 +20,7 @@ const { safeJson } = require('./utils/safeJson');
 const { contactEmail } = require('./utils/contact');
 const { appUrl } = require('./utils/appUrl');
 const siteSettings = require('./utils/siteSettings');
+const { startupMessage } = require('./utils/startupMessage');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
 const BASE_URL = appUrl();
@@ -159,15 +159,7 @@ function start() {
   // Start serwera
   // ============================================================
   const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`
-    ╔══════════════════════════════════════════════════╗
-    ║   Fantastyczne Wspinanie — System Rejestracji    ║
-    ║   Projekt dofinansowany z UE                     ║
-    ╠══════════════════════════════════════════════════╣
-    ║   Adres:  ${appUrl().padEnd(33)}║
-    ║   Środow: ${(process.env.NODE_ENV || 'development').padEnd(40)}║
-    ╚══════════════════════════════════════════════════╝
-    `);
+    console.log(startupMessage({ port: PORT, url: BASE_URL, env: process.env.NODE_ENV || 'development' }));
   });
 
   // ============================================================
