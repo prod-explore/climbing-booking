@@ -17,8 +17,7 @@ const { sendMagicLink, sendParticipantRemovedEmail } = require('../services/emai
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { calculateAge } = require('../utils/age');
 
-const envAdmins = process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '';
-const ADMIN_EMAILS = envAdmins.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL);
 
 // Upewnij się, że konto admina istnieje i ma flagę is_admin=1
 function ensureAdminAccount(rawEmail) {
@@ -55,12 +54,8 @@ function ensureInstructorAccount(rawEmail, firstName) {
   }
 }
 
-// Utwórz instruktorów (wymagane z zadania)
-ensureInstructorAccount('instructor1@example.com', 'Margo');
-ensureInstructorAccount('instructor2@example.com', 'Mikołaj');
-ensureInstructorAccount('instructor3@example.com', 'Kuba');
-ensureInstructorAccount('instructor4@example.com', 'Angela');
-ensureInstructorAccount('instructor5@example.com', 'Julia');
+// Konta instruktorów pochodzą z konfiguracji (INSTRUCTORS="adres:Imię, adres:Imię"), nie z kodu.
+parseInstructors(process.env.INSTRUCTORS).forEach(({ email, firstName }) => ensureInstructorAccount(email, firstName));
 
 // ============================================================
 // GET /admin/login
