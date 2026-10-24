@@ -1,7 +1,7 @@
 /**
  * siteSettings.js — the facts about the operator and the venue that the public pages state.
  *
- * Who the data controller is, their tax number and where the classes take place are not code: they differ per
+ * Who the data controller is, their tax number, where the classes take place and who funds them are not code: they differ per
  * deployment and change over time, so they live in the database and are edited in the admin panel
  * (/admin/settings). The templates only print what is configured here.
  *
@@ -71,6 +71,14 @@ const FIELDS = [
     max: 80,
     required: true,
     placeholder: '[miejscowość]'
+  },
+  {
+    key: 'funding_note',
+    label: 'Informacja o finansowaniu (opcjonalnie)',
+    hint: 'Np. „Projekt dofinansowany ze środków Unii Europejskiej”. Pokazywana na stronie głównej i logowania, w stopce i w e-mailach, tylko gdy jest wypełniona.',
+    max: 200,
+    required: false,
+    placeholder: ''
   }
 ];
 

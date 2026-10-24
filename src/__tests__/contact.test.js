@@ -63,4 +63,25 @@ describe('e-mails', () => {
     expect(sent[2].html).toContain('mailto:kontakt@club.example');
     expect(sent[2].text).toContain('kontakt@club.example');
   });
+
+  test('carry no funding notice by default, and the configured one, escaped, once it is set', async () => {
+    const { SiteSettingsModel } = require('../models/database');
+    const send = () => Promise.all([
+      email.sendMagicLink('a@example.com', 'https://app.example/auth/verify?t=1', false),
+      email.sendParticipantRemovedEmail('a@example.com', 'Jan Kowalski', 'Wspinaczka', '2026-10-20'),
+      email.sendWaitingListPromotedEmail('a@example.com', 'Jan', 'Wspinaczka', '2026-10-20', 'https://app.example/dashboard')
+    ]);
+
+    await send();
+    for (const message of sent) expect(message.html + message.text).not.toMatch(/dofinansowan|\bUE\b|1F1EA/);
+
+    sent.length = 0;
+    SiteSettingsModel.saveAll({ funding_note: 'Projekt "X" & <UE>' });
+    await send();
+    for (const message of sent) {
+      expect(message.html).toContain('Projekt &quot;X&quot; &amp; &lt;UE&gt;');
+      expect(message.text).toContain('Projekt "X" & <UE>');
+    }
+    SiteSettingsModel.saveAll({ funding_note: '' });
+  });
 });

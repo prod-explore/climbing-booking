@@ -7,7 +7,8 @@
           <img src="/images/fw-logo.png" alt="" width="44" height="44" decoding="async" style="height:44px;width:auto;border-radius:6px;flex-shrink:0;">
           <div class="footer-brand-name"><%= appName %></div>
         </div>
-        <p class="footer-desc">System rezerwacji darmowych zajęć wspinaczkowych w ramach unijnego projektu aktywizacji.</p>
+        <p class="footer-desc">System zapisów na zajęcia wspinaczkowe.</p>
+        <% if (site.funding_note) { %><p class="footer-desc"><%= site.funding_note %></p><% } %>
       </div>
       <div class="footer-col">
         <h4 class="footer-col-title">Przydatne linki</h4>

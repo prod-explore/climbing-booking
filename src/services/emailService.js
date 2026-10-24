@@ -12,6 +12,7 @@
 const { Resend } = require('resend');
 const { contactEmail } = require('../utils/contact');
 const { appUrl } = require('../utils/appUrl');
+const { SiteSettingsModel } = require('../models/database');
 
 let resend;
 
@@ -41,6 +42,44 @@ const consoleMailer = {
     }
   }
 };
+
+/**
+ * The operator's funding note from the site settings ('' when not set). Read when a message is built, so a change in
+ * the admin panel applies to the next e-mail; a database that is not open yet simply means no note.
+ */
+function fundingNote() {
+  try {
+    return (SiteSettingsModel.all().funding_note || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/** The funding note as a footer paragraph of the HTML e-mails, or nothing. */
+function fundingNoteHtml() {
+  const note = fundingNote();
+  return note ? `<p style="margin:0;font-size:11px;color:#999999;">${escapeHtml(note)}</p>` : '';
+}
+
+/** A footer row with the funding note, or nothing (no empty grey bar when there is no note). */
+function fundingNoteRow() {
+  const note = fundingNoteHtml();
+  return note
+    ? `<tr><td style="background:#f8f9f5;border-top:1px solid #e8ece0;padding:16px 48px;text-align:center;">${note}</td></tr>`
+    : '';
+}
+
+/** The funding note as the last line of the plain-text e-mails, or nothing. */
+function fundingNoteText() {
+  const note = fundingNote();
+  return note ? `\n${note}` : '';
+}
 
 function getMailer() {
   return sendsToConsole() ? consoleMailer : getResend();
@@ -79,8 +118,7 @@ function magicLinkEmailHTML(magicLink, isNewUser) {
         <!-- Header -->
         <tr>
           <td style="background-color:#1a3a2a;padding:36px 48px;text-align:center;">
-            <p style="margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#99c24d;">PROJEKT DOFINANSOWANY ZE ŚRODKÓW UE</p>
-            <h1 style="margin:10px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.3px;">Fantastyczne Wspinanie</h1>
+            <h1 style="margin:0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.3px;">Fantastyczne Wspinanie</h1>
             <p style="margin:4px 0 0;font-size:11px;color:#6b8f72;letter-spacing:1px;">System zapisów na zajęcia</p>
           </td>
         </tr>
@@ -117,9 +155,7 @@ function magicLinkEmailHTML(magicLink, isNewUser) {
             <p style="margin:0 0 6px;font-size:11px;color:#aaaaaa;">
               Nie prosiłeś(-aś) o ten link? Możesz go zignorować — żadne działanie nie jest wymagane.
             </p>
-            <p style="margin:0;font-size:11px;color:#cccccc;">
-              &#x1F1EA;&#x1F1FA; Projekt dofinansowany ze środków UE
-            </p>
+            ${fundingNoteHtml()}
           </td>
         </tr>
 
@@ -133,8 +169,8 @@ function magicLinkEmailHTML(magicLink, isNewUser) {
 
 function magicLinkEmailText(magicLink, isNewUser) {
   return isNewUser
-    ? `Witaj!\n\nKliknij ten link, aby aktywować konto (ważny 15 min):\n${magicLink}\n\nJeśli nie zakładałeś(-aś) konta — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}`
-    : `Twój link do logowania (jednorazowy, ważny 15 min):\n${magicLink}\n\nJeśli nie prosiłeś(-aś) o ten link — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}`;
+    ? `Witaj!\n\nKliknij ten link, aby aktywować konto (ważny 15 min):\n${magicLink}\n\nJeśli nie zakładałeś(-aś) konta — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}${fundingNoteText()}`
+    : `Twój link do logowania (jednorazowy, ważny 15 min):\n${magicLink}\n\nJeśli nie prosiłeś(-aś) o ten link — zignoruj tę wiadomość.\n\n-- Fantastyczne Wspinanie | ${CONTACT_EMAIL}${fundingNoteText()}`;
 }
 
 async function sendMagicLink(email, magicLink, isNewUser = false) {
@@ -217,13 +253,7 @@ function participantRemovedHTML(participantName, className, classDate) {
             </p>
           </td>
         </tr>
-        <tr>
-          <td style="background:#f8f9f5;border-top:1px solid #e8ece0;padding:16px 48px;text-align:center;">
-            <p style="margin:0;font-size:11px;color:#cccccc;">
-              &#x1F1EA;&#x1F1FA; Projekt dofinansowany ze środków UE
-            </p>
-          </td>
-        </tr>
+        ${fundingNoteRow()}
       </table>
     </td></tr>
   </table>
@@ -232,7 +262,7 @@ function participantRemovedHTML(participantName, className, classDate) {
 }
 
 function participantRemovedText(participantName, className, classDate) {
-  return `Wypisanie z zajęć\n\nUczestnik ${participantName} został wypisany z zajęć "${className}" (${classDate}).\n\nDecyzja została podjęta przez administratora.\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie`;
+  return `Wypisanie z zajęć\n\nUczestnik ${participantName} został wypisany z zajęć "${className}" (${classDate}).\n\nDecyzja została podjęta przez administratora.\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie${fundingNoteText()}`;
 }
 
 async function sendParticipantRemovedEmail(toEmail, participantName, className, classDate) {
@@ -310,11 +340,7 @@ function waitingListPromotedHTML(firstName, className, classDate, dashboardLink)
             </p>
           </td>
         </tr>
-        <tr>
-          <td style="background:#f8f9f5;border-top:1px solid #e8ece0;padding:16px 48px;text-align:center;">
-            <p style="margin:0;font-size:11px;color:#cccccc;">&#x1F1EA;&#x1F1FA; Projekt dofinansowany ze środków UE</p>
-          </td>
-        </tr>
+        ${fundingNoteRow()}
       </table>
     </td></tr>
   </table>
@@ -323,7 +349,7 @@ function waitingListPromotedHTML(firstName, className, classDate, dashboardLink)
 }
 
 function waitingListPromotedText(firstName, className, classDate) {
-  return `Cześć ${firstName}!\n\nMiejsce zwolniło się i Twój zapis z listy rezerwowej został automatycznie potwierdzony.\n\nZajęcia: "${className}"\nData: ${classDate}\n\nZaloguj się do panelu uczestnika, aby zobaczyć szczegóły.\n\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie`;
+  return `Cześć ${firstName}!\n\nMiejsce zwolniło się i Twój zapis z listy rezerwowej został automatycznie potwierdzony.\n\nZajęcia: "${className}"\nData: ${classDate}\n\nZaloguj się do panelu uczestnika, aby zobaczyć szczegóły.\n\nW razie pytań: ${CONTACT_EMAIL}\n\n-- Fantastyczne Wspinanie${fundingNoteText()}`;
 }
 
 async function sendWaitingListPromotedEmail(toEmail, firstName, className, classDate, dashboardLink) {

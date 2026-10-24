@@ -190,3 +190,32 @@ describe('/admin/settings', () => {
     expect((await request(app).get('/privacy')).text).not.toContain('NIP:');
   });
 });
+
+describe('funding note', () => {
+  const FUNDING = /dofinansowan|Unii Europejskiej|unijn|Finansowane z UE|🇪🇺|za darmo|darmow/i;
+  const PAGES = ['/', '/login', '/calendar', '/privacy', '/terms'];
+
+  test('is empty by default, and no page mentions funding or free classes', async () => {
+    await (await login('admin@example.com')).post('/admin/settings').type('form').send(FORM);
+    for (const path of PAGES) {
+      const res = await request(app).get(path);
+      expect(res.status).toBe(200);
+      expect(res.text).not.toMatch(FUNDING);
+    }
+  });
+
+  test('once filled in, appears on the home and login pages and in the footer, escaped', async () => {
+    const admin = await login('admin@example.com');
+    const note = 'Projekt dofinansowany ze środków UE <b>2026</b>';
+    await admin.post('/admin/settings').type('form').send({ ...FORM, funding_note: note });
+
+    // sanitizeBody strips the tag before it is stored; what is left is printed escaped
+    expect(SiteSettingsModel.all().funding_note).toBe('Projekt dofinansowany ze środków UE 2026');
+    for (const path of ['/', '/login', '/privacy']) {
+      expect((await request(app).get(path)).text).toContain('Projekt dofinansowany ze środków UE 2026');
+    }
+
+    await admin.post('/admin/settings').type('form').send({ ...FORM, funding_note: '' });
+    expect((await request(app).get('/login')).text).not.toMatch(FUNDING);
+  });
+});
