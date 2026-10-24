@@ -4,26 +4,33 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: skarpa-bytom-app
+    container_name: climbing-booking-app
     restart: unless-stopped
 
     env_file: .env
+    # Set here so a development .env cannot switch them: the container always runs in production mode,
+    # on the port the healthcheck and the mapping below expect, with the database on the volume.
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_PATH: /app/data/climbing-booking.db
 
     volumes:
-      - skarpa_data:/app/data
+      - climbing_booking_data:/app/data
 
-    expose:
-      - "3000"
+    # Published on the loopback interface only: put a TLS-terminating reverse proxy in front of it
+    # (or attach the proxy to climbing-booking-network and drop this mapping).
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
 
     networks:
-      - skarpa-network
+      - climbing-booking-network
 
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: '0.5'
-
 
     logging:
       driver: "json-file"
@@ -32,11 +39,11 @@ services:
         max-file: "3"
 
 networks:
-  skarpa-network:
+  climbing-booking-network:
+    name: climbing-booking-network
     driver: bridge
-    external: true
 
 volumes:
-  skarpa_data:
+  climbing_booking_data:
+    name: climbing_booking_data
     driver: local
-    name: skarpa_sqlite_data
