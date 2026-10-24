@@ -1,7 +1,8 @@
 {
-  "name": "fantastyczne-wspinanie-rejestracja",
+  "name": "climbing-booking",
   "version": "1.0.0",
-  "description": "System rejestracji na zajęcia wspinaczkowe — Fantastyczne Wspinanie (projekt UE)",
+  "private": true,
+  "description": "Class registration for a climbing school: schedule, adult and child capacity pools, waiting list, magic-link login",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
