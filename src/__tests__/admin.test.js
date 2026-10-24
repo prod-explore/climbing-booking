@@ -82,4 +82,14 @@ describe('POST /admin/classes', () => {
     expect(res.text).toContain('value="500"');
     expect(ClassModel.getById(stored.id).name).toBe('Do edycji');
   });
+
+  test('keeps a description of up to 1000 characters whole', async () => {
+    const admin = await loginAsAdmin();
+    const description = 'Opis zajęć. '.repeat(70).trim(); // 839 characters
+    const res = await admin.post('/admin/classes').type('form').send({ ...CLASS_FORM, name: 'Długi opis', description });
+
+    expect(res.status).toBe(302);
+    const saved = ClassModel.getAll().find(c => c.name === 'Długi opis');
+    expect(saved.description).toBe(description);
+  });
 });
