@@ -4,13 +4,13 @@
 # prebuilt binary for the platform, and never reaches the final image.
 # ============================================================
 
-FROM node:22-alpine AS deps
+FROM node:25-alpine AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:22-alpine AS production
+FROM node:25-alpine AS production
 ENV NODE_ENV=production
 WORKDIR /app
 
