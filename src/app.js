@@ -123,7 +123,8 @@ app.use((req, res) => {
 // ============================================================
 // Globalny handler błędów
 // ============================================================
-app.use((err, req, res, next) => {
+// Express recognises an error handler by its four parameters, so `_next` stays although it is unused.
+app.use((err, req, res, _next) => {
   console.error('Błąd aplikacji:', err);
 
   // Nie ujawniaj szczegółów błędów w produkcji

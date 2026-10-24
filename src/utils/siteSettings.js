@@ -76,7 +76,7 @@ const FIELDS = [
 
 const FIELD_KEYS = FIELDS.map(f => f.key);
 
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- stripping control characters is the point
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 
 /**

@@ -12,18 +12,6 @@ const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { apiLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
 
-/** Wiek dziecka przy zapisie (7–17 lat), wymagany dla każdego uczestnika z kategorią „dziecko”. */
-function parseChildAge(raw) {
-  if (raw === undefined || raw === null || String(raw).trim() === '') {
-    return { ok: false, error: 'Podaj wiek dziecka (w latach).' };
-  }
-  const n = parseInt(String(raw).trim(), 10);
-  if (!Number.isInteger(n) || n < 7 || n > 17) {
-    return { ok: false, error: 'Wiek dziecka musi być liczbą całkowitą od 7 do 17 lat.' };
-  }
-  return { ok: true, value: n };
-}
-
 /**
  * Czy można się zapisać na zajęcia względem czasu (bez okna „X dni przed”).
  * Nadchodzące terminy z kalendarza są zawsze dostępne do zapisu, dopóki nie zabraknie miejsc.

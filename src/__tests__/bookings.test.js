@@ -10,7 +10,6 @@
 'use strict';
 
 const Database = require('better-sqlite3');
-const path = require('path');
 
 // Podmień DB_PATH przed importem modeli — używamy :memory:
 process.env.DB_PATH = ':memory:';

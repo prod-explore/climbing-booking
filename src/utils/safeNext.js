@@ -11,6 +11,8 @@
 function safeNext(value, fallback = '/dashboard') {
   if (typeof value !== 'string' || value[0] !== '/') return fallback;
   if (value[1] === '/' || value[1] === '\\') return fallback;
+  // Control characters and backslashes can make a browser read the path as another host.
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point
   if (/[\\\u0000-\u001f\u007f]/.test(value)) return fallback;
   return value;
 }
