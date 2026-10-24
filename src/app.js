@@ -21,6 +21,7 @@ const { contactEmail } = require('./utils/contact');
 const { appUrl } = require('./utils/appUrl');
 const siteSettings = require('./utils/siteSettings');
 const { startupMessage } = require('./utils/startupMessage');
+const { redactUrl } = require('./utils/redactUrl');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
 const BASE_URL = appUrl();
@@ -63,7 +64,11 @@ app.get('/healthz', (req, res) => {
 
 app.use(helmetConfig);
 app.use(compression());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// The access log prints login links without their one-time token, and stays quiet under the test runner.
+morgan.token('url', req => redactUrl(req.originalUrl || req.url));
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+}
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
