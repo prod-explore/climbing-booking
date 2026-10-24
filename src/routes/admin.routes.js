@@ -234,6 +234,33 @@ router.get('/admin/calendar', requireAdmin, (req, res) => {
   });
 });
 
+/**
+ * The class form reads database columns (start_time, max_spots...). After a failed submit it is shown again with what
+ * was typed, so the submitted body is mapped to that shape. `base` is the class being edited (it keeps its id).
+ */
+function submittedClass(body, base = {}) {
+  const text = (value, fallback) => (typeof value === 'string' ? value : fallback);
+  const start = text(body.startTime, '') || base.start_time || '';
+  const startMs = new Date(start).getTime();
+  const endMs = new Date(text(body.endTime, '')).getTime();
+  return {
+    ...base,
+    name: text(body.name, base.name || ''),
+    description: text(body.description, base.description || ''),
+    start_time: start,
+    duration_min: Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+      ? Math.round((endMs - startMs) / 60000)
+      : base.duration_min || 0,
+    class_type: text(body.classType, base.class_type || 'adult_only'),
+    max_spots: text(body.maxSpots, base.max_spots ?? ''),
+    max_child_spots: text(body.maxChildSpots, base.max_child_spots ?? ''),
+    instructor: text(body.instructor, base.instructor || ''),
+    child_instructor: text(body.childInstructor, base.child_instructor || ''),
+    color: text(body.color, base.color || ''),
+    waiting_list_enabled: body.waitingListEnabled ? 1 : 0
+  };
+}
+
 // ============================================================
 // GET /admin/classes/new
 // ============================================================
@@ -250,7 +277,7 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
 
   const instructors = UserModel.getInstructors();
   const renderErr = (msg) => res.render('admin/class-form', {
-    title: 'Nowe zajęcia', classData: req.body, user: req.user, error: msg, instructors
+    title: 'Nowe zajęcia', classData: submittedClass(req.body), user: req.user, error: msg, instructors
   });
 
   // Nazwa
@@ -320,7 +347,7 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
   const instructors = UserModel.getInstructors();
 
   const renderErr = (msg) => res.render('admin/class-form', {
-    title: `Edytuj: ${classData.name}`, classData: { ...classData, ...req.body }, user: req.user, error: msg, instructors
+    title: `Edytuj: ${classData.name}`, classData: submittedClass(req.body, classData), user: req.user, error: msg, instructors
   });
 
   // Nazwa

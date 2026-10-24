@@ -1,3 +1,13 @@
+<%
+  // classData has the database columns: a stored class, or (after a failed submit) what was typed, mapped to them.
+  const isEdit = Boolean(classData && classData.id);
+  const startValue = classData && classData.start_time ? String(classData.start_time).replace(' ', 'T').slice(0, 16) : '';
+  const startMs = new Date(startValue).getTime();
+  const end = new Date(startMs + ((classData && classData.duration_min) || 0) * 60000);
+  const endValue = Number.isFinite(startMs) && classData.duration_min
+    ? new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    : '';
+%>
 <%- include('../partials/head') %>
 
 <div class="admin-layout">
@@ -20,7 +30,7 @@
 
   <main class="admin-main">
     <div class="admin-topbar">
-      <h1><%= classData ? 'Edytuj zajęcia' : 'Nowe zajęcia' %></h1>
+      <h1><%= isEdit ? 'Edytuj zajęcia' : 'Nowe zajęcia' %></h1>
       <a href="/admin" class="btn btn--outline">← Powrót</a>
     </div>
 
@@ -30,7 +40,7 @@
 
     <div class="admin-form-card">
       <form
-        action="<%= classData ? '/admin/classes/' + classData.id : '/admin/classes' %>"
+        action="<%= isEdit ? '/admin/classes/' + classData.id : '/admin/classes' %>"
         method="POST"
         class="admin-form"
       >
@@ -61,13 +71,13 @@
           <div class="form-group">
             <label class="form-label">Data i godzina *</label>
             <input type="datetime-local" name="startTime" class="form-input"
-                   value="<%= classData ? classData.start_time.replace(' ', 'T').slice(0,16) : '' %>"
+                   value="<%= startValue %>"
                    required>
           </div>
           <div class="form-group">
             <label class="form-label">Data i godzina zakończenia *</label>
             <input type="datetime-local" name="endTime" class="form-input"
-                   value="<%= classData ? new Date(new Date(classData.start_time).getTime() + classData.duration_min*60000 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16) : '' %>"
+                   value="<%= endValue %>"
                    required>
           </div>
         </div>
@@ -122,7 +132,9 @@
           </div>
           <div class="form-group" style="flex:1;">
             <label class="form-label">Podgląd</label>
-            <div id="colorPreview" <%- 'style="height:44px; border-radius:8px; padding:0 16px; display:flex; align-items:center; font-weight:600; font-size:0.9rem; color:#fff; background-color: ' + (classData && classData.color ? classData.color : '#6366f1') + ';"' %>>
+            <%# After a failed submit classData is the request body: only a #rrggbb value reaches the style. %>
+            <% const previewColor = classData && /^#[0-9a-fA-F]{6}$/.test(classData.color || '') ? classData.color : '#6366f1'; %>
+            <div id="colorPreview" style="height:44px; border-radius:8px; padding:0 16px; display:flex; align-items:center; font-weight:600; font-size:0.9rem; color:#fff; background-color: <%= previewColor %>;">
               Podgląd zajęć
             </div>
           </div>
@@ -141,7 +153,7 @@
         <div class="form-actions">
           <a href="/admin" class="btn btn--outline">Anuluj</a>
           <button type="submit" class="btn btn--primary btn--lg">
-            <%= classData ? 'Zapisz zmiany' : 'Dodaj zajęcia' %> →
+            <%= isEdit ? 'Zapisz zmiany' : 'Dodaj zajęcia' %> →
           </button>
         </div>
 
