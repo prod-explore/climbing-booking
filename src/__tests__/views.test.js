@@ -82,3 +82,14 @@ describe('calendar modals', () => {
     }
   );
 });
+
+describe('participant dashboard', () => {
+  test('keeps its script in public/js/dashboard.js and its styling in CSS classes', () => {
+    const source = fs.readFileSync(path.join(VIEWS_DIR, 'user/dashboard.ejs'), 'utf8');
+    expect(source.match(/<script(?![^>]*\bsrc=)[^>]*>/g) || []).toEqual([]);
+    expect(source).toContain('<script src="/js/dashboard.js"></script>');
+    // the only style attributes left place calendar entries by their time
+    for (const [attr] of source.matchAll(/style="[^"]*"/g)) expect(attr).toMatch(/top:|height:|left:/);
+    expect(fs.existsSync(path.join(__dirname, '../../public/js/dashboard.js'))).toBe(true);
+  });
+});
