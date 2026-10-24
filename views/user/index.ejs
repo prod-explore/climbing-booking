@@ -304,11 +304,16 @@
           modalTitle.textContent = d.name;
           modalTime.textContent = d.time;
 
-          let meta = '';
-          if (d.instructor) meta += `<span>👤 ${d.instructor}</span>`;
-          if (d.childInstructor) meta += `<span>🧒 Animacje: ${d.childInstructor}</span>`;
-          meta += `<span>${isMixed ? '👥 Dorośli + Dzieci' : '🧑 Tylko dorośli'}</span>`;
-          modalMeta.innerHTML = meta;
+          // Names come from the database: set them as text, never as markup.
+          const meta = [];
+          if (d.instructor)      meta.push(`👤 ${d.instructor}`);
+          if (d.childInstructor) meta.push(`🧒 Animacje: ${d.childInstructor}`);
+          meta.push(isMixed ? '👥 Dorośli + Dzieci' : '🧑 Tylko dorośli');
+          modalMeta.replaceChildren(...meta.map(text => {
+            const span = document.createElement('span');
+            span.textContent = text;
+            return span;
+          }));
 
           const fullDesc = d.description || '';
           if (fullDesc.length > 250) {
