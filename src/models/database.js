@@ -12,7 +12,7 @@ const fs = require('fs');
 const { calculateAge } = require('../utils/age');
 const { runMigrations } = require('../migrations/runner');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/skarpa.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/climbing-booking.db');
 
 // Upewnij się, że katalog danych istnieje
 const dbDir = path.dirname(DB_PATH);

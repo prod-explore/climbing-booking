@@ -4,5 +4,8 @@ data/
 *.db
 npm-debug.log*
 .git/
+.github/
 docker-compose*.yml
 *.md
+src/__tests__/
+coverage/
