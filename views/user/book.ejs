@@ -106,9 +106,9 @@
                             <p style="margin:0 0 6px;font-weight:700;color:#15803d;">✅ Jesteś na liście rezerwowej</p>
                             <p style="margin:0;font-size:14px;color:#555;">Gdy zwolni się miejsce, zostaniesz automatycznie przeniesiony na listę główną i otrzymasz e-mail z potwierdzeniem.</p>
                           </div>
-                          <form action="/waitlist/cancel/<%= classData.id %>" method="POST" style="margin-top:12px;">
-                            <button type="submit" class="btn btn--outline"
-                                    onclick="return confirm('Na pewno chcesz wypisać się z listy rezerwowej?')">
+                          <form action="/waitlist/cancel/<%= classData.id %>" method="POST" style="margin-top:12px;"
+                                data-confirm="Na pewno chcesz wypisać się z listy rezerwowej?">
+                            <button type="submit" class="btn btn--outline">
                               Wypisz się z listy rezerwowej
                             </button>
                           </form>

@@ -49,3 +49,24 @@ describe.each(['admin/attendance', 'instructor/attendance'])('%s', view => {
     expect(data).toContain('\\u003c/script\\u003e');
   });
 });
+
+const fs = require('fs');
+const path = require('path');
+
+const VIEWS_DIR = path.join(__dirname, '../../views');
+
+function viewFiles(dir = VIEWS_DIR) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return viewFiles(full);
+    return entry.name.endsWith('.ejs') ? [full] : [];
+  });
+}
+
+describe('client-side scripts the CSP lets run', () => {
+  test.each(viewFiles().map(f => path.relative(VIEWS_DIR, f)))('%s has no inline event handler attributes', file => {
+    // helmet sends script-src-attr 'none': an onclick/onsubmit attribute is silently ignored by the browser.
+    const source = fs.readFileSync(path.join(VIEWS_DIR, file), 'utf8');
+    expect(source.match(/\son[a-z]+\s*=\s*["']/gi) || []).toEqual([]);
+  });
+});

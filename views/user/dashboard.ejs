@@ -62,10 +62,10 @@
              const pastCount = bookings.filter(b => new Date(b.start_time) < new Date()).length;
           %>
           <div class="custom-tabs" style="display:flex; gap:1rem; margin-top:1rem; margin-bottom:1.5rem; border-bottom:2px solid var(--border);">
-            <button class="custom-tab-btn active" data-target="active" onclick="switchBookingTab('active')" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text); border-bottom:2px solid var(--brand); margin-bottom:-2px; transition:color 0.2s;">
+            <button class="custom-tab-btn active" data-target="active" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text); border-bottom:2px solid var(--brand); margin-bottom:-2px; transition:color 0.2s;">
               Aktywne <span style="background:var(--bg-secondary); padding:2px 8px; border-radius:12px; font-size:0.85em; margin-left:4px;"><%= activeCount %></span>
             </button>
-            <button class="custom-tab-btn" data-target="past" onclick="switchBookingTab('past')" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:color 0.2s;">
+            <button class="custom-tab-btn" data-target="past" style="background:none; border:none; padding:0.5rem 1rem; font-size:1.05rem; font-family:inherit; font-weight:600; cursor:pointer; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:color 0.2s;">
               Przeszłe <span style="background:var(--bg-secondary); padding:2px 8px; border-radius:12px; font-size:0.85em; margin-left:4px;"><%= pastCount %></span>
             </button>
           </div>
@@ -103,7 +103,7 @@
                         <% const age = p.child_age || p.age; %>
                         <% if (age != null) { %><span class="participant-chip-age">(<%= age %> lat)</span><% } %>
                         <% if (!isPast && hoursLeft >= 2 && b.participants.length > 1) { %>
-                          <form action="/cancel/<%= b.class_id %>/participants/<%= p.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Czy na pewno chcesz wypisać tę osobę?')">
+                          <form action="/cancel/<%= b.class_id %>/participants/<%= p.id %>" method="POST" style="display:inline;" data-confirm="Czy na pewno chcesz wypisać tę osobę?">
                             <button type="submit" style="background:none;border:none;color:var(--danger);cursor:pointer;margin-left:4px;padding:0;font-size:0.9em;" title="Wypisz uczestnika">✕</button>
                           </form>
                         <% } %>
@@ -118,7 +118,7 @@
                     <span class="badge badge--soon">Za < 2h</span>
                   <% } else { %>
                     <form action="/cancel/<%= b.class_id %>" method="POST"
-                          onsubmit="return confirm('Czy na pewno chcesz odwołać zapis?')">
+                          data-confirm="Czy na pewno chcesz odwołać zapis?">
                       <button type="submit" class="btn btn--danger btn--sm">Odwołaj</button>
                     </form>
                   <% } %>
@@ -164,7 +164,7 @@
               </div>
               <div class="booking-card-action">
                 <form action="/waitlist/cancel/<%= w.class_id %>" method="POST"
-                      onsubmit="return confirm('Czy na pewno chcesz wypisać się z listy rezerwowej?')">
+                      data-confirm="Czy na pewno chcesz wypisać się z listy rezerwowej?">
                   <button type="submit" class="btn btn--outline btn--sm" style="border-color:#f59e0b;color:#92400e;">Wypisz się</button>
                 </form>
               </div>
@@ -538,7 +538,11 @@
     }
   }
 
-  // Initialize booking tabs – DOM is already ready at this point (inline script at bottom of body)
+  // Initialize booking tabs – DOM is already ready at this point (inline script at bottom of body).
+  // Listeners, not onclick attributes: the CSP (script-src-attr 'none') blocks inline handlers.
+  document.querySelectorAll('.custom-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchBookingTab(btn.dataset.target));
+  });
   if (document.querySelector('.custom-tab-btn')) {
     switchBookingTab('active');
   }
