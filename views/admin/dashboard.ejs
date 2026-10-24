@@ -29,7 +29,7 @@
       <h1>Panel Administracyjny</h1>
       <div class="admin-topbar-actions">
         <form action="/admin/clone-week" method="POST" style="display:inline-flex; align-items:center; gap:0.5rem;"
-              onsubmit="return confirm('Czy na pewno chcesz sklonować zajęcia z bieżącego tygodnia na wybrany tydzień?');">
+              data-confirm="Czy na pewno chcesz sklonować zajęcia z bieżącego tygodnia na wybrany tydzień?">
           <select name="weeksAhead" class="form-control" style="width: auto; padding: 0.4rem; font-size: 0.9rem;">
             <option value="1">1 tydzień w przód</option>
             <option value="2">2 tygodnie w przód</option>

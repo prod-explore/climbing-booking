@@ -17,7 +17,7 @@
       </div>
       <div class="attendance-header-actions">
         <button id="copyListBtn" class="btn btn--outline" title="Skopiuj listę jako tekst gotowy do wysłania">📋 Kopiuj tekst</button>
-        <button onclick="window.print()" class="btn btn--outline" title="Wydrukuj listę (ukrywa zbędne kolumny)">🖨 Drukuj</button>
+        <button id="printListBtn" type="button" class="btn btn--outline" title="Wydrukuj listę (ukrywa zbędne kolumny)">🖨 Drukuj</button>
         <a href="/instructor" class="btn btn--outline">← Powrót</a>
       </div>
     </div>
@@ -127,6 +127,8 @@ function showToast(msg, type = 'success') {
   toast.className = `toast toast--${type}`;
   setTimeout(() => { toast.classList.add('toast--hidden'); }, 3000);
 }
+
+document.getElementById('printListBtn')?.addEventListener('click', () => window.print());
 
 document.getElementById('copyListBtn')?.addEventListener('click', () => {
   const data = JSON.parse(document.getElementById('attendanceData').textContent);
