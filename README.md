@@ -36,7 +36,7 @@ src/
 ├── app.js            middleware order, error pages, startup
 ├── routes/           auth, user (calendar, booking), admin, instructor
 ├── middleware/       session (auth.js), same-origin check, rate limits, helmet/CSP
-├── models/           database.js: connection and all queries
+├── models/           connection.js and one file per model (database.js re-exports them)
 ├── migrations/       numbered SQL files and their runner
 ├── services/         e-mail (Resend), waiting list promotion
 └── utils/            configuration parsing, site settings, safe redirects, ...
