@@ -70,3 +70,15 @@ describe('client-side scripts the CSP lets run', () => {
     expect(source.match(/\son[a-z]+\s*=\s*["']/gi) || []).toEqual([]);
   });
 });
+
+describe('calendar modals', () => {
+  test.each(['admin/calendar.ejs', 'user/calendar.ejs', 'user/dashboard.ejs', 'user/index.ejs'])(
+    '%s puts class names and instructors into the modal as text, never into markup',
+    file => {
+      const source = fs.readFileSync(path.join(VIEWS_DIR, file), 'utf8');
+      // A template literal that contains a tag and interpolates a text field of the class (d.name, d.instructor...).
+      const markupWithText = /`[^`]*<[^`]*\$\{d\.(?!id\b)\w+\}[^`]*`/g;
+      expect(source.match(markupWithText) || []).toEqual([]);
+    }
+  );
+});
