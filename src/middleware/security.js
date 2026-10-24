@@ -105,11 +105,13 @@ const helmetConfig = helmet({
 });
 
 /**
- * Sanityzuje prosty tekst — usuwa tagi HTML
+ * Sanityzuje prosty tekst — usuwa tagi HTML.
+ * Does not cut the length: each route enforces its own limit (a class description may be 1000 characters),
+ * and express.json/urlencoded already cap the body at 10 kB.
  */
 function sanitizeText(str) {
   if (!str || typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').trim().slice(0, 500);
+  return str.replace(/<[^>]*>/g, '').trim();
 }
 
 /**
