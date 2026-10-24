@@ -11,6 +11,7 @@
 
 const { Resend } = require('resend');
 const { contactEmail } = require('../utils/contact');
+const { appUrl } = require('../utils/appUrl');
 
 let resend;
 
@@ -23,7 +24,9 @@ function getResend() {
   return resend;
 }
 
-const FROM_ADDRESS  = process.env.EMAIL_FROM  || 'Fantastyczne Wspinanie <noreply@club.example>';
+// Without EMAIL_FROM the sender is noreply@ on the host the site is served from (APP_URL). Resend only sends from a
+// domain that has been verified, so set EMAIL_FROM explicitly when the mail domain differs from the site's.
+const FROM_ADDRESS  = process.env.EMAIL_FROM  || `Fantastyczne Wspinanie <noreply@${new URL(appUrl()).hostname}>`;
 const CONTACT_EMAIL = contactEmail();
 const REPLY_TO      = process.env.EMAIL_REPLY || CONTACT_EMAIL;
 const APP_NAME      = 'Fantastyczne Wspinanie — System zapisów';

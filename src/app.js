@@ -12,7 +12,7 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const compression = require('compression');
 
-const { initDatabase, ClassModel, getDb } = require('./models/database');
+const { initDatabase, ClassModel, SiteSettingsModel, getDb } = require('./models/database');
 const { initEmailService } = require('./services/emailService');
 const { loadUser } = require('./middleware/auth');
 const { generalLimiter, helmetConfig, sanitizeBody } = require('./middleware/security');
@@ -20,9 +20,10 @@ const { requireSameOrigin } = require('./middleware/sameOrigin');
 const { safeJson } = require('./utils/safeJson');
 const { contactEmail } = require('./utils/contact');
 const { appUrl } = require('./utils/appUrl');
+const siteSettings = require('./utils/siteSettings');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
-appUrl();
+const BASE_URL = appUrl();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,9 @@ app.set('trust proxy', 1);
 
 // Available to every template, also when a view is rendered outside a request.
 app.locals.contactEmail = contactEmail();
+app.locals.baseUrl = BASE_URL;
+app.locals.canonicalUrl = `${BASE_URL}/`;
+app.locals.site = siteSettings.resolve({});
 
 // Liveness probe: registered before the rate limiter so health checks never use up a client's quota.
 app.get('/healthz', (req, res) => {
@@ -83,6 +87,11 @@ app.use((req, res, next) => {
   res.locals.appName = 'Fantastyczne Wspinanie';
   res.locals.currentYear = new Date().getFullYear();
   res.locals.safeJson = safeJson;
+  // The address that link previews (Messenger, Facebook) and search engines should use for this page. It comes
+  // from APP_URL and the path actually requested, never from a literal in a template.
+  res.locals.canonicalUrl = `${BASE_URL}${req.path}`;
+  // Operator and venue details, as configured in the admin panel.
+  res.locals.site = siteSettings.resolve(SiteSettingsModel.all());
   next();
 });
 

@@ -216,7 +216,8 @@
       </div>
     </section>
 
-    <!-- SEKCJA: MAPA -->
+    <!-- SEKCJA: MAPA (tylko gdy w panelu admina podano obiekt i adres) -->
+    <% if (site.hasVenue) { %>
     <section class="section section--map">
       <div class="container">
         <div class="section-header">
@@ -225,14 +226,14 @@
         </div>
         <div class="map-wrapper">
           <iframe
-            src="https://www.google.com/maps?q=example&output=embed"
+            src="<%= site.mapEmbedUrl %>"
             width="100%" height="400" style="border:0;border-radius:12px;" allowfullscreen="" loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade" title="Skarpa Przykładowe Miasto">
+            referrerpolicy="no-referrer-when-downgrade" title="<%= site.venue_name %> — mapa">
           </iframe>
           <div class="map-info-card">
             <h4>📍 Miejsce zajęć</h4>
-            <p>Skarpa Bytom<br>ul. Przykładowa 1, Przykładowe Miasto</p>
-            <a href="https://www.google.com/maps" target="_blank" rel="noopener"
+            <p><%= site.venue_name %><br><%= site.venue_street %>, <%= site.venue_city %></p>
+            <a href="<%= site.mapLinkUrl %>" target="_blank" rel="noopener"
               class="btn btn--primary btn--sm">
               Nawiguj w Google Maps →
             </a>
@@ -240,6 +241,7 @@
         </div>
       </div>
     </section>
+    <% } %>
 
     <!-- CTA -->
     <section class="section section--cta">

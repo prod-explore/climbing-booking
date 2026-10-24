@@ -11,8 +11,8 @@
     <div class="legal-content">
       <section>
         <h2>1. Informacje ogólne</h2>
-        <p>Niniejsza Polityka Prywatności określa zasady przetwarzania i ochrony danych osobowych użytkowników korzystających z serwisu umożliwiającego zapisy na zajęcia wspinaczkowe dostępnego pod adresem <a href="https://wspinanie.ue.futumore.pl" target="_blank">wspinanie.ue.futumore.pl</a> (dalej: „Serwis”).</p>
-        <p>Administratorem danych osobowych jest <strong>Przykładowy Administrator Danych</strong> z siedzibą w miejscowości [siedziba], NIP: 0000000000 (dalej: „Administrator”).</p>
+        <p>Niniejsza Polityka Prywatności określa zasady przetwarzania i ochrony danych osobowych użytkowników korzystających z serwisu umożliwiającego zapisy na zajęcia wspinaczkowe dostępnego pod adresem <a href="<%= baseUrl %>" target="_blank" rel="noopener"><%= baseUrl.replace(/^https?:\/\//, '') %></a> (dalej: „Serwis”).</p>
+        <p>Administratorem danych osobowych jest <strong><%= site.org_name %></strong> z siedzibą w miejscowości <%= site.org_seat %><% if (site.hasNip) { %>, NIP: <%= site.org_nip %><% } %> (dalej: „Administrator”).</p>
         <p>Administrator dokłada szczególnej staranności w celu ochrony prywatności użytkowników oraz zapewnienia bezpieczeństwa przekazywanych danych osobowych zgodnie z obowiązującymi przepisami prawa, w szczególności zgodnie z Rozporządzeniem Parlamentu Europejskiego i Rady (UE) 2016/679 („RODO”).</p>
       </section>
 

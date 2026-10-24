@@ -1,0 +1,60 @@
+<%- include('../partials/head') %>
+
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <%- include('../partials/admin-sidebar-brand') %>
+    <nav class="admin-nav">
+      <a href="/admin" class="admin-nav-link">📊 Dashboard</a>
+      <a href="/admin/calendar" class="admin-nav-link">📅 Kalendarz</a>
+      <a href="/admin/classes/new" class="admin-nav-link">➕ Nowe zajęcia</a>
+      <a href="/admin/consents" class="admin-nav-link">📋 Zgody</a>
+      <a href="/admin/archive" class="admin-nav-link">🗄️ Archiwum</a>
+      <a href="/admin/settings" class="admin-nav-link active">⚙️ Ustawienia</a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <form action="/auth/logout" method="POST">
+        <button type="submit" class="btn btn--outline btn--sm btn--full">Wyloguj</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div>
+        <h1>Ustawienia</h1>
+        <p class="admin-topbar-sub">Dane prowadzącego i obiektu, wyświetlane w stopce, polityce prywatności, regulaminie i na mapie</p>
+      </div>
+      <a href="/admin" class="btn btn--outline">← Powrót</a>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success) { %>
+      <div class="alert alert--success"><%= success %></div>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert--error"><%= error %></div>
+    <% } %>
+
+    <div class="admin-form-card">
+      <form action="/admin/settings" method="POST" class="admin-form">
+        <% fields.forEach(function (field) { %>
+          <div class="form-group">
+            <label class="form-label" for="setting-<%= field.key %>"><%= field.label %><%= field.required ? ' *' : '' %></label>
+            <input type="text" id="setting-<%= field.key %>" name="<%= field.key %>" class="form-input"
+                   value="<%= values[field.key] || '' %>" maxlength="<%= field.max %>"
+                   <%= field.required ? 'required' : '' %>>
+            <small class="booking-form-hint"><%= field.hint %></small>
+          </div>
+        <% }) %>
+
+        <div class="form-actions">
+          <a href="/admin" class="btn btn--outline">Anuluj</a>
+          <button type="submit" class="btn btn--primary btn--lg">Zapisz ustawienia →</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script src="/js/main.js"></script>
+</body>
+</html>

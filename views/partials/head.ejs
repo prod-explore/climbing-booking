@@ -6,19 +6,22 @@
   <title><%= title %> | <%= appName %></title>
   <meta name="description" content="Darmowe zajęcia wspinaczkowe — projekt dofinansowany z funduszy Unii Europejskiej. Rozpocznij swoją przygodę ze wspinaczką już dziś!">
   <meta name="theme-color" content="#1a1d17">
+  <link rel="canonical" href="<%= canonicalUrl %>">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://club.example/">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta property="og:site_name" content="<%= appName %>">
+  <meta property="og:locale" content="pl_PL">
   <meta property="og:title" content="<%= title %> | <%= appName %>">
   <meta property="og:description" content="Zapisz się na darmowe zajęcia wspinaczkowe. Profesjonalni instruktorzy, sprzęt w cenie i świetna zabawa!">
-  <meta property="og:image" content="/images/fw-logo.png">
+  <meta property="og:image" content="<%= baseUrl %>/images/fw-logo.png">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:title" content="<%= title %> | <%= appName %>">
   <meta property="twitter:description" content="Zapisz się na darmowe zajęcia wspinaczkowe.">
-  <meta property="twitter:image" content="/images/fw-logo.png">
+  <meta property="twitter:image" content="<%= baseUrl %>/images/fw-logo.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
