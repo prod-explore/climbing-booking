@@ -11,6 +11,7 @@
       <a href="/admin/classes/new" class="admin-nav-link">➕ Nowe zajęcia</a>
       <a href="/admin/consents" class="admin-nav-link">📋 Zgody (<%= typeof pendingConsents !== 'undefined' ? pendingConsents : 0 %>)</a>
       <a href="/admin/archive" class="admin-nav-link">🗄️ Archiwum</a>
+      <a href="/admin/settings" class="admin-nav-link">⚙️ Ustawienia</a>
     </nav>
     <div class="admin-sidebar-footer">
       <div class="admin-user-info">
@@ -46,6 +47,13 @@
     <% } %>
     <% if (typeof error !== 'undefined' && error) { %>
       <div class="alert alert--error"><%= error %></div>
+    <% } %>
+
+    <% if (site.missing.length) { %>
+      <div class="alert alert--info">
+        Strony publiczne (stopka, polityka prywatności, regulamin) pokazują jeszcze puste miejsca zamiast danych
+        prowadzącego i obiektu. <a href="/admin/settings">Uzupełnij ustawienia →</a>
+      </div>
     <% } %>
 
     <!-- Statystyki -->

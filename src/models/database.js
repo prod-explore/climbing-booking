@@ -509,4 +509,31 @@ const QrScanModel = {
     getDb().prepare('SELECT COUNT(*) as cnt FROM qr_scans').get().cnt
 };
 
-module.exports = { initDatabase, getDb, SpotsError, UserModel, MagicTokenModel, ClassModel, BookingModel, QrScanModel, WaitingListModel };
+// ============================================================
+// SiteSettingsModel — dane prowadzącego i obiektu (patrz utils/siteSettings.js)
+// ============================================================
+const SiteSettingsModel = {
+  /** Wszystkie zapisane ustawienia jako obiekt { klucz: wartość }. */
+  all() {
+    const rows = getDb().prepare('SELECT key, value FROM site_settings').all();
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  },
+
+  /** Zapisuje komplet wartości w jednej transakcji; pusta wartość usuwa ustawienie. */
+  saveAll(values) {
+    const db = getDb();
+    const upsert = db.prepare(
+      `INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`
+    );
+    const remove = db.prepare('DELETE FROM site_settings WHERE key = ?');
+    db.transaction(() => {
+      for (const [key, value] of Object.entries(values)) {
+        if (value) upsert.run(key, value);
+        else remove.run(key);
+      }
+    })();
+  }
+};
+
+module.exports = { initDatabase, getDb, SpotsError, UserModel, MagicTokenModel, ClassModel, BookingModel, QrScanModel, WaitingListModel, SiteSettingsModel };

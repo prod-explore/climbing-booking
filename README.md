@@ -39,6 +39,7 @@ graph TD
 - **Why Server-Side Rendering (EJS) over a SPA?**: The application consists primarily of complex registration forms, attendance lists, and schedules. SSR significantly reduced time-to-market for a solo developer by removing the overhead of building and maintaining a separate REST API and frontend state management. Furthermore, SSR ensures an immediate "First Contentful Paint," which is critical for instructors and parents accessing the site on mobile devices within climbing gyms where internet coverage is often poor.
 - **Why does the e-mail link only show a button?**: Mail scanners and link previews open the URLs in a message before the person does. If opening the link logged you in (and spent the one-time token), the token could be gone by the time of the real click. `GET /auth/verify` therefore only renders a confirmation page; `POST /auth/verify` checks and spends the token in one transaction and sets the session.
 - **Why are the places counted inside the booking transaction?**: The limit of each pool (adults, children) is a rule about the data, so `BookingModel.book` enforces it under `BEGIN IMMEDIATE` and throws `SpotsError`, instead of relying on the route checking first and inserting next. The route's own check only produces a readable message.
+- **Why are the operator and venue details in the database?**: Who the data controller is, their tax number and where the classes take place differ per deployment and change over time, so they are not written in the templates. They are rows of `site_settings`, edited in the admin panel (`/admin/settings`, NIP checked with its control digit), and the footer, privacy policy, terms and the map section print them; until they are filled in, the pages show a visible placeholder and the admin dashboard says so. The same reasoning applies to every public address: `og:url`, `og:image` and the canonical link are built from `APP_URL` and the requested path, so a link shared in Messenger or Facebook (they follow `og:url`) always leads to the real site.
 - **Schema Evolution (Iterative Development)**: The data model evolved continuously alongside business requirements. Major pivots included implementing Role-Based Access Control (RBAC) to separate admin/instructor views, adding age categories and parental consent workflows for minors, and restructuring the class schedule tables (`max_child_spots`, `child_instructor`) to support a unique "Dual Capacity" system where adult classes run parallel to dedicated children's animations.
 
 ---
@@ -55,6 +56,7 @@ graph TD
 - **Attendance Tracking**: Real-time participant list management allowing instructors to quickly check in students directly from their mobile devices during classes.
 - **Capacity Control**: Separate adult and child pools per class, enforced inside the booking transaction, so a group is booked whole or not at all.
 - **Waiting List**: When a class is full, adults can queue; the first in line is booked and notified by e-mail as soon as a place frees up.
+- **Admin Settings**: The data controller, NIP and the venue's address are edited in the admin panel, not in the code; link previews use the configured `APP_URL`.
 
 ### 🔒 Security & Operations
 - **Automated Email Notifications**: Integration with the `Resend` API for transactional emails, registration confirmations, and important schedule changes.
@@ -138,6 +140,11 @@ erDiagram
         TEXT user_agent
         DATETIME scanned_at
     }
+    site_settings {
+        TEXT key PK
+        TEXT value
+        DATETIME updated_at
+    }
     schema_migrations {
         INTEGER id PK
         TEXT filename UK
@@ -166,7 +173,8 @@ src/migrations/
 ├── 003_instructor_role.sql
 ├── 004_family_classes.sql
 ├── 005_class_color_archive.sql
-└── 006_waiting_list.sql
+├── 006_waiting_list.sql
+└── 007_site_settings.sql
 ```
 
 ---
@@ -191,7 +199,7 @@ src/migrations/
    ```bash
    cp .env.example .env
    ```
-   *Set `RESEND_API_KEY`, `APP_URL` (required in production: the links in e-mails are built from it) and `JWT_SECRET` (generate it with `openssl rand -hex 32`; the app refuses to start with a placeholder, a short or a repetitive value, unless `ALLOW_WEAK_SECRETS=true` for local work). Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start. The public contact address shown on the site and in e-mails is `CONTACT_EMAIL`.*
+   *Set `RESEND_API_KEY`, `APP_URL` (required in production: the links in e-mails are built from it) and `JWT_SECRET` (generate it with `openssl rand -hex 32`; the app refuses to start with a placeholder, a short or a repetitive value, unless `ALLOW_WEAK_SECRETS=true` for local work). Admin and instructor accounts are configuration, not code: list them in `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated); the accounts are created on start. The public contact address shown on the site and in e-mails is `CONTACT_EMAIL`. After the first admin login, fill in the operator and venue details under *Ustawienia* (`/admin/settings`): until then the footer, privacy policy and terms show placeholders. The sender of the e-mails is `EMAIL_FROM`, by default `noreply@` on the host of `APP_URL` (Resend only sends from a verified domain).*
 
 3. **Install Dependencies:**
    ```bash
@@ -225,6 +233,7 @@ The suite uses an in-memory SQLite database and needs no services. It runs again
 - **Login flow over HTTP** (supertest, no port opened): the e-mail link does not spend the token, `POST /auth/verify` logs in once, the `next` parameter cannot leave the site, the per-address limit.
 - **HTTP**: health check, error pages, redirects of protected pages, security headers, and the same-origin check on state-changing requests.
 - **Views**: server data embedded in `<script>` elements stays inert, even with a hostile name.
+- **Site settings**: validation (NIP control digit), placeholders for what is not filled in, the admin-only page, and that the public pages print what was saved; `og:url`, `og:image` and the canonical link come from `APP_URL`, never from a literal.
 - **Configuration**: the secret and `APP_URL` checks; parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address (`CONTACT_EMAIL`) on the pages and in the e-mails, with Resend mocked.
 - **Migrations**: the runner applies every file once and records it.
 

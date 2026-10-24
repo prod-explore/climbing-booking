@@ -10,12 +10,13 @@ const router = express.Router();
 const validator = require('validator');
 const { parseEmailList, parseInstructors } = require('../utils/accounts');
 
-const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, getDb } = require('../models/database');
+const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, SiteSettingsModel, getDb } = require('../models/database');
 const { requireAdmin, setAuthCookie, createMagicLink } = require('../middleware/auth');
 const { adminLoginLimiter } = require('../middleware/security');
 const { sendMagicLink, sendParticipantRemovedEmail } = require('../services/emailService');
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { calculateAge } = require('../utils/age');
+const siteSettings = require('../utils/siteSettings');
 
 const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL);
 
@@ -134,6 +135,40 @@ router.get('/admin', requireAdmin, (req, res) => {
     success: req.query.success || null,
     error: req.query.error || null
   });
+});
+
+// ============================================================
+// GET/POST /admin/settings — dane prowadzącego i obiektu (administrator danych, NIP, adres obiektu)
+// Wyświetlane w stopce, polityce prywatności, regulaminie i sekcji z mapą.
+// ============================================================
+function renderSettings(res, user, values, extra = {}) {
+  res.render('admin/settings', {
+    title: 'Ustawienia',
+    user,
+    fields: siteSettings.FIELDS,
+    values,
+    success: null,
+    error: null,
+    ...extra
+  });
+}
+
+router.get('/admin/settings', requireAdmin, (req, res) => {
+  renderSettings(res, req.user, SiteSettingsModel.all(), {
+    success: typeof req.query.success === 'string' ? req.query.success : null
+  });
+});
+
+router.post('/admin/settings', requireAdmin, (req, res) => {
+  const { values, errors } = siteSettings.normalize(req.body);
+
+  if (errors.length) {
+    res.status(400);
+    return renderSettings(res, req.user, values, { error: errors.join(' ') });
+  }
+
+  SiteSettingsModel.saveAll(values);
+  return res.redirect('/admin/settings?success=' + encodeURIComponent('Zapisano ustawienia.'));
 });
 
 // ============================================================
