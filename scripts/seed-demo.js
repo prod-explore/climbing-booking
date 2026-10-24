@@ -12,10 +12,10 @@ const { initDatabase, getDb, ClassModel, UserModel, BookingModel, SiteSettingsMo
 
 const SAMPLE_CLASSES = [
   { day: 0, time: '17:00', minutes: 90, name: 'Wspinaczka dla początkujących', type: 'adult_only', spots: 12, color: '#2d5a3d', instructor: 'Anna' },
-  { day: 1, time: '18:30', minutes: 90, name: 'Technika na przewieszeniu', type: 'adult_only', spots: 8, color: '#6366f1', instructor: 'Piotr' },
+  { day: 1, time: '18:00', minutes: 90, name: 'Technika na przewieszeniu', type: 'adult_only', spots: 8, color: '#6366f1', instructor: 'Piotr' },
   { day: 2, time: '16:00', minutes: 120, name: 'Zajęcia rodzinne', type: 'adult_and_child', spots: 10, child: 8, color: '#f59e0b', instructor: 'Anna', childInstructor: 'Ola' },
-  { day: 3, time: '19:00', minutes: 90, name: 'Bouldering', type: 'adult_only', spots: 15, color: '#0ea5e9', instructor: 'Piotr' },
-  { day: 5, time: '10:00', minutes: 120, name: 'Sobota na ściance', type: 'adult_and_child', spots: 12, child: 10, color: '#ec4899', instructor: 'Anna', childInstructor: 'Ola' }
+  { day: 3, time: '17:30', minutes: 90, name: 'Bouldering', type: 'adult_only', spots: 15, color: '#0ea5e9', instructor: 'Piotr' },
+  { day: 5, time: '16:00', minutes: 120, name: 'Sobota na ściance', type: 'adult_and_child', spots: 12, child: 10, color: '#ec4899', instructor: 'Anna', childInstructor: 'Ola' }
 ];
 
 const SAMPLE_PEOPLE = [
