@@ -1,6 +1,6 @@
 /**
- * app.js — Główny plik aplikacji Express
- * Fantastyczne Wspinanie — System Rejestracji na Zajęcia Wspinaczkowe
+ * app.js — the Express application: configuration checks, the middleware chain, the routers and the error pages.
+ * Running the file starts the server; requiring it (as the tests do) only builds `app` and opens no port.
  */
 
 require('dotenv').config();
@@ -32,20 +32,18 @@ assertStrongSecret('IP_HASH_SECRET', process.env.IP_HASH_SECRET);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================================
-// Inicjalizacja bazy danych i e-maila
-// ============================================================
 initDatabase();
 initEmailService().catch(err => console.warn('Email init warning:', err.message));
 
+// Required only now: admin.routes creates the configured admin and instructor accounts as it loads, which needs the
+// database to be open.
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const adminRoutes = require('./routes/admin.routes');
 const instructorRoutes = require('./routes/instructor.routes');
 
-// ============================================================
-// Middleware globalny
-// ============================================================
+// The app runs behind one reverse proxy (docker-compose.yml): trusting one hop of X-Forwarded-For makes req.ip the
+// client's address, which the rate limits and the QR-visit hash use, instead of the proxy's.
 app.set('trust proxy', 1);
 
 // Available to every template, also when a view is rendered outside a request.
@@ -79,18 +77,13 @@ app.use(requireSameOrigin);
 app.use(sanitizeBody);
 app.use(generalLimiter);
 
-// Pliki statyczne
 app.use(express.static(path.join(__dirname, '../public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0
 }));
 
-// ============================================================
-// Silnik szablonów EJS
-// ============================================================
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
-// Zmienne globalne dla wszystkich szablonów
 app.use((req, res, next) => {
   res.locals.appName = 'Fantastyczne Wspinanie';
   res.locals.currentYear = new Date().getFullYear();
@@ -103,22 +96,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// ============================================================
-// Ładowanie użytkownika z cookie (nie blokuje)
-// ============================================================
 app.use(loadUser);
 
-// ============================================================
-// Routing
-// ============================================================
 app.use('/', authRoutes);
 app.use('/', userRoutes);
 app.use('/', adminRoutes);
 app.use('/', instructorRoutes);
 
-// ============================================================
-// Obsługa błędów 404
-// ============================================================
 app.use((req, res) => {
   res.status(404).render('user/error', {
     title: '404 — Nie znaleziono',
@@ -128,14 +112,11 @@ app.use((req, res) => {
   });
 });
 
-// ============================================================
-// Globalny handler błędów
-// ============================================================
 // Express recognises an error handler by its four parameters, so `_next` stays although it is unused.
 app.use((err, req, res, _next) => {
   console.error('Błąd aplikacji:', err);
 
-  // Nie ujawniaj szczegółów błędów w produkcji
+  // In production the page says only that something failed: error messages can name files, queries or settings.
   const message = process.env.NODE_ENV === 'production'
     ? 'Wystąpił błąd serwera.'
     : err.message;
@@ -148,32 +129,20 @@ app.use((err, req, res, _next) => {
   });
 });
 
-// ============================================================
-// Start serwera — tylko gdy plik uruchomiono bezpośrednio (node src/app.js).
-// Testy importują `app` bez otwierania portu.
-// ============================================================
+/** Starts the server, the daily archiving of past weeks' classes, and a clean shutdown on SIGTERM/SIGINT. */
 function start() {
-  // ============================================================
-  // Uruchomienie automatycznego archiwizowania zajęć w tle
-  // ============================================================
   const archiveCron = setInterval(() => {
     try {
       ClassModel.archivePastWeek();
     } catch (err) {
       console.error('Błąd podczas archiwizacji (cron):', err);
     }
-  }, 1000 * 60 * 60 * 24); // co 24 godziny
+  }, 1000 * 60 * 60 * 24);
 
-  // ============================================================
-  // Start serwera
-  // ============================================================
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(startupMessage({ port: PORT, url: BASE_URL, env: process.env.NODE_ENV || 'development' }));
   });
 
-  // ============================================================
-  // Graceful shutdown — sprzątanie przy zatrzymaniu procesu
-  // ============================================================
   function shutdown(signal) {
     console.log(`\n[${signal}] Zamykanie serwera...`);
     clearInterval(archiveCron);
@@ -181,7 +150,7 @@ function start() {
       console.log('Serwer zamknięty.');
       process.exit(0);
     });
-    // Force-exit po 10s jeśli coś się zawiesiło
+    // server.close() waits for open connections; a client holding one open must not keep the process alive.
     setTimeout(() => process.exit(1), 10_000).unref();
   }
 

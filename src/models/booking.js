@@ -5,8 +5,8 @@
 const { getDb } = require('./connection');
 
 /**
- * Rzucany przez BookingModel.book, gdy w którejś puli nie ma dość wolnych miejsc.
- * `code`: NO_CLASS | NO_ADULT_SPOTS | NO_CHILD_SPOTS; liczby opisują stan w chwili sprawdzenia.
+ * Thrown by BookingModel.book when the class does not exist or a pool lacks places.
+ * `code`: NO_CLASS | NO_ADULT_SPOTS | NO_CHILD_SPOTS; the counts are the places left when the check ran.
  */
 class SpotsError extends Error {
   constructor(code, adultSpotsLeft, childSpotsLeft) {
@@ -35,6 +35,7 @@ const BookingModel = {
     return row || { adult_taken: 0, child_taken: 0 };
   },
 
+  /** Inserts a booking and its participants in one transaction, without a capacity check: use `book` for that. */
   createWithParticipants: (userId, classId, participants) => {
     const insert = getDb().transaction(() => {
       const booking = getDb().prepare(
@@ -49,7 +50,7 @@ const BookingModel = {
 
       for (let i = 0; i < participants.length; i++) {
         const ag = participants[i].age;
-        // Age can be a number (from calculated birth_date) or a string (from booking form)
+        // The main participant's age is a number (computed from birth_date); an extra participant's is form text.
         let ageVal = null;
         if (ag !== undefined && ag !== null && String(ag).trim() !== '') {
           ageVal = parseInt(String(ag).trim(), 10);
@@ -73,10 +74,10 @@ const BookingModel = {
   },
 
   /**
-   * Zapisuje na zajęcia i sprawdza wolne miejsca w tej samej transakcji zapisu.
-   * BEGIN IMMEDIATE zajmuje blokadę zapisu, zanim miejsca zostaną policzone, więc limit nie zależy od tego,
-   * że wywołujący akurat nie ma `await` między własnym sprawdzeniem a insertem (ani od tego, że działa jeden proces).
-   * Rzuca SpotsError, gdy w puli brakuje miejsc.
+   * Books the participants and checks the free places in the same write transaction.
+   * BEGIN IMMEDIATE takes the write lock before the places are counted, so the limit does not depend on the caller
+   * having no `await` between its own check and the insert (nor on there being a single process).
+   * Throws SpotsError when a pool lacks places.
    */
   book: (userId, classId, participants) => {
     const run = getDb().transaction(() => {

@@ -10,9 +10,9 @@ const MagicTokenModel = {
       'INSERT INTO magic_tokens (user_id, token, expires_at) VALUES (?, ?, ?)'
     ).run(userId, token, expiresAt),
 
-  // expires_at is an ISO string ('2026-10-23T15:41:00.000Z'). Comparing it as text with CURRENT_TIMESTAMP
-  // ('2026-10-23 15:50:00') is wrong: 'T' sorts after ' ', so a token stayed valid until midnight UTC of the
-  // day it expired. datetime() parses the ISO form, and both sides are compared as dates.
+  // expires_at is an ISO string ('2026-10-23T15:41:00.000Z'). Compared as text with CURRENT_TIMESTAMP
+  // ('2026-10-23 15:50:00') it would be wrong: 'T' sorts after ' ', so a token would stay valid until midnight UTC
+  // of the day it expires. datetime() parses the ISO form, and both sides are compared as dates.
   findValid: (token) =>
     getDb().prepare(`
       SELECT mt.*, u.email, u.first_name, u.last_name

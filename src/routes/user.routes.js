@@ -1,6 +1,7 @@
 /**
- * user.routes.js — Endpointy użytkownika: dashboard, kalendarz, zapisy
- * v2 — Podwójne pule miejsc (adult/child), zgody rodzicielskie
+ * user.routes.js — the public pages (home, calendar, legal pages, the leaflet QR link) and everything a participant
+ * does: the dashboard, booking with extra adults and children, cancelling, the waiting list, and asking for
+ * parental-consent verification.
  */
 
 const express = require('express');
@@ -13,18 +14,12 @@ const { apiLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
 const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('../utils/calendarWeek');
 
-/**
- * Czy można się zapisać na zajęcia względem czasu (bez okna „X dni przed”).
- * Nadchodzące terminy z kalendarza są zawsze dostępne do zapisu, dopóki nie zabraknie miejsc.
- */
+/** Booking stays open until the class starts: there is no "opens N days before" window. */
 function isBookingOpen(startTime) {
   const classDate = new Date(startTime);
   return classDate > new Date();
 }
 
-// ============================================================
-// GET / — Landing page (publiczny)
-// ============================================================
 router.get('/', (req, res) => {
   const { weekStart, weekEnd } = getWeekBounds(0);
 
@@ -41,9 +36,6 @@ router.get('/', (req, res) => {
   });
 });
 
-// ============================================================
-// GET /calendar — Publiczny kalendarz zajęć
-// ============================================================
 router.get('/calendar', (req, res) => {
   const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
@@ -62,9 +54,7 @@ router.get('/calendar', (req, res) => {
   });
 });
 
-// ============================================================
-// POST /consent/request — Dziecko prosi o weryfikację zgody
-// ============================================================
+// A 16- or 17-year-old asks an administrator to confirm parental consent; until then the account cannot book.
 router.post('/consent/request', requireAuth, (req, res) => {
   const age = calculateAge(req.user.birth_date);
   if (age === null || age >= 18) {
@@ -81,9 +71,6 @@ router.post('/consent/request', requireAuth, (req, res) => {
   res.redirect('/dashboard?success=Prośba+o+weryfikację+zgody+została+wysłana.+Poczekaj+na+zatwierdzenie+przez+administratora.');
 });
 
-// ============================================================
-// GET /dashboard — Panel użytkownika
-// ============================================================
 router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
   const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
@@ -95,7 +82,6 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
     participants: BookingModel.getParticipantsByBooking(b.id)
   }));
 
-  // Wszystkie nadchodzące + status dla dashboardu
   const classesWithStatus = allUpcoming.map(c => ({
     ...c,
     adultSpotsLeft: c.max_spots - (c.adult_taken || 0),
@@ -104,11 +90,12 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
     userBooked: userBookings.some(b => b.class_id === c.id)
   }));
 
-  // Obliczamy ramy czasowe na podstawie WSZYSTKICH zajęć w danym tygodniu (żeby siatka wyglądała identycznie jak na głównej)
+  // The grid hours come from every class of the week, booked or not, so the grid spans the same hours as on the
+  // home page.
   const allWeekClasses = inWeek(allUpcoming, { weekStart, weekEnd });
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(allWeekClasses);
 
-  // Zajęcia tygodniowe (dostępne) dla kalendarza
+  // The calendar offers only the classes the user has not booked yet.
   const weekClasses = allUpcoming
     .filter(c => {
       const st = new Date(c.start_time);
@@ -119,7 +106,6 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
   const userAge = calculateAge(req.user.birth_date);
   const isMinor = userAge !== null && userAge < 18;
 
-  // Lista rezerwowa użytkownika
   const waitlistBookings = WaitingListModel.getUserWaitlistBookings(req.user.id);
 
   res.render('user/dashboard', {
@@ -134,11 +120,9 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
   });
 });
 
-// ============================================================
-// GET /book/:classId — Formularz zapisu na zajęcia
-// ============================================================
 router.get('/book/:classId', requireAuth, requireProfile, (req, res) => {
-  // Niezweryfikowane konto niepełnoletniego nie może rezerwować
+  // An account completed by someone under 18 stays unverified, and cannot book, until an administrator confirms
+  // parental consent.
   if (!req.user.is_verified) {
     return res.redirect('/dashboard?error=Twoje+konto+wymaga+weryfikacji+zgody+rodzica+przed+zapisami');
   }
@@ -166,9 +150,8 @@ router.get('/book/:classId', requireAuth, requireProfile, (req, res) => {
     ? (classData.max_child_spots - (classData.child_taken || 0))
     : 0;
 
-  // Sprawdź, czy są wolne miejsca w puli dorosłych
+  // A full adult pool turns the page into the waiting-list offer (when the class has one).
   if (adultSpotsLeft <= 0) {
-    // Brak miejsc — sprawdź czy lista rezerwowa jest włączona
     const waitingListEnabled = !!classData.waiting_list_enabled;
     const waitingCount = waitingListEnabled ? WaitingListModel.countByClass(classData.id) : 0;
     const waitingSpotsLeft = waitingListEnabled ? ((classData.max_waiting_spots || 10) - waitingCount) : 0;
@@ -182,7 +165,6 @@ router.get('/book/:classId', requireAuth, requireProfile, (req, res) => {
     });
   }
 
-  // Sprawdź czy użytkownik już zapisany
   const existingBooking = BookingModel.findByUserAndClass(req.user.id, classData.id);
   if (existingBooking) {
     return res.redirect('/dashboard?info=Jesteś+już+zapisany+na+te+zajęcia');
@@ -204,11 +186,11 @@ router.get('/book/:classId', requireAuth, requireProfile, (req, res) => {
   });
 });
 
-// ============================================================
-// POST /book/:classId — Zapis na zajęcia (z uczestnikami)
-// ============================================================
+/**
+ * Books the user and up to four extra participants, or (action=waitlist) puts the user on the waiting list.
+ * Each participant takes a place from the adult pool (16 and over) or, in an adult_and_child class, the child pool.
+ */
 router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (req, res) => {
-  // Niezweryfikowane konto niepełnoletniego nie może rezerwować
   if (!req.user.is_verified) {
     return res.redirect('/dashboard?error=Konto+wymaga+weryfikacji');
   }
@@ -223,37 +205,31 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     return res.redirect('/calendar?error=Nieprawid\u0142owe+zaj\u0119cia');
   }
 
-  // Podwójna weryfikacja blokady czasowej (server-side)
   if (!isBookingOpen(classData.start_time)) {
     return res.redirect('/calendar?error=Te+zajęcia+nie+są+już+dostępne+do+zapisu');
   }
 
-  // Sprawdź czy już nie zapisany
   const existingBooking = BookingModel.findByUserAndClass(req.user.id, classData.id);
   if (existingBooking) {
     return res.redirect('/dashboard?info=Jesteś+już+zapisany');
   }
 
-  // Obsługa zapisu na listę rezerwową
   const action = typeof req.body.action === 'string' ? req.body.action : '';
   if (action === 'waitlist') {
     if (!classData.waiting_list_enabled) {
       return res.redirect(`/book/${classData.id}?error=Lista+rezerwowa+nie+jest+włączona`);
     }
-    // Sprawdź czy już na liście rezerwowej
     const alreadyOnWaitlist = WaitingListModel.findByUserAndClass(req.user.id, classData.id);
     if (alreadyOnWaitlist) {
       return res.redirect('/dashboard?info=Jesteś+już+na+liście+rezerwowej+tych+zajęć');
     }
-    // Sprawdź czy lista nie jest pełna
     const waitingCount = WaitingListModel.countByClass(classData.id);
     if (waitingCount >= classData.max_waiting_spots) {
       return res.redirect(`/book/${classData.id}?error=Lista+rezerwowa+jest+pełna`);
     }
-    // Sprawdź czy są jeszcze wolne miejsca (równoległe wyścigi)
+    // A place may have freed up since the page was shown: then send the user to the normal booking form instead.
     const freshSpots = BookingModel.getSpotCounts(classData.id);
     if (classData.max_spots - freshSpots.adult_taken > 0) {
-      // Miejsce się zwolniło — zapisz bezpośrednio na główną
       return res.redirect(`/book/${classData.id}`);
     }
     WaitingListModel.add(req.user.id, classData.id);
@@ -277,15 +253,13 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     });
   };
 
-  // Oblicz wiek głównego użytkownika
   const mainUserAge = calculateAge(req.user.birth_date);
 
-  // Zbierz uczestników z podziałem na pule
   const participants = [];
 
   let mainAgeCategory = req.user.age_category;
   if (classData.class_type === 'adult_only') {
-    mainAgeCategory = 'adult'; // Wszyscy w adult_only zajmują miejsce adult
+    mainAgeCategory = 'adult';
     if (mainUserAge !== null && mainUserAge < 16) {
       return renderBookError('Osoby poniżej 16 roku życia nie mogą brać udziału w tych zajęciach.');
     }
@@ -340,17 +314,14 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     }
   }
 
-  // Policz ile miejsc z której puli potrzebujemy
   const adultsNeeded = participants.filter(p => p.ageCategory === 'adult').length;
   const childrenNeeded = participants.filter(p => p.ageCategory === 'child').length;
 
-  // Sprawdź dostępność miejsc (aktualne dane z bazy)
   const spots = BookingModel.getSpotCounts(classData.id);
   const adultSpotsLeft = classData.max_spots - spots.adult_taken;
   const childSpotsLeft = (classData.class_type === 'adult_and_child')
     ? (classData.max_child_spots - spots.child_taken) : 0;
 
-  // Walidacja: dorosły + dzieci
   if (adultsNeeded > adultSpotsLeft) {
     return res.render('user/book', {
       title: `Zapis: ${classData.name}`, classData,
@@ -361,7 +332,6 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     });
   }
 
-  // Walidacja: dzieci możliwe tylko dla adult_and_child
   if (childrenNeeded > 0 && classData.class_type !== 'adult_and_child') {
     return res.render('user/book', {
       title: `Zapis: ${classData.name}`, classData,
@@ -382,8 +352,7 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
     });
   }
 
-  // Kluczowa reguła: dorosły musi być obecny razem z dzieckiem
-  // Jeśli dorosły zapisuje dziecko, musi też zapisać siebie (zajmuje miejsce w puli dorosłych)
+  // A child is never booked without the adult who brings them: an adult booking children takes a place too.
   if (childrenNeeded > 0 && adultsNeeded === 0 && req.user.age_category === 'adult') {
     return res.render('user/book', {
       title: `Zapis: ${classData.name}`, classData,
@@ -395,7 +364,8 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
   }
 
   try {
-    // Miejsca są liczone jeszcze raz w transakcji zapisu: to ona rozstrzyga, a sprawdzenie wyżej daje tylko czytelny komunikat.
+    // The places are counted again inside the booking transaction, which decides; the checks above only give a
+    // clearer message.
     BookingModel.book(req.user.id, classData.id, participants);
 
     return res.redirect('/dashboard?success=Zapisano+pomyślnie!');
@@ -418,9 +388,6 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
   }
 });
 
-// ============================================================
-// POST /cancel/:classId — Odwołanie zapisu
-// ============================================================
 router.post('/cancel/:classId', requireAuth, (req, res) => {
   const classId = parseInt(req.params.classId, 10);
   if (!Number.isInteger(classId) || classId < 1) {
@@ -432,7 +399,7 @@ router.post('/cancel/:classId', requireAuth, (req, res) => {
     return res.redirect('/dashboard?error=Zajęcia+nie+istnieją');
   }
 
-  // Nie pozwól odwołać zapisu na < 2 godziny przed
+  // No cancellations in the last two hours before the class.
   const classDate = new Date(classData.start_time);
   const hoursLeft = (classDate - new Date()) / (1000 * 60 * 60);
   if (hoursLeft < 2) {
@@ -441,15 +408,13 @@ router.post('/cancel/:classId', requireAuth, (req, res) => {
 
   BookingModel.cancelByUser(req.user.id, classData.id);
 
-  // Sprawdź i przenieś pierwszą osobę z listy rezerwowej (async)
+  // Not awaited: the promotion itself is synchronous, only its e-mail outlives the response; the service logs failures.
   checkAndPromoteWaitingList(classData.id);
 
   res.redirect('/dashboard?success=Zapis+odwołany');
 });
 
-// ============================================================
-// POST /cancel/:classId/participants/:participantId — Odwołanie pojedynczego uczestnika
-// ============================================================
+// Cancels one participant of the user's booking; the booking goes when its last participant does.
 router.post('/cancel/:classId/participants/:participantId', requireAuth, (req, res) => {
   const classId       = parseInt(req.params.classId, 10);
   const participantId = parseInt(req.params.participantId, 10);
@@ -462,7 +427,7 @@ router.post('/cancel/:classId/participants/:participantId', requireAuth, (req, r
     return res.redirect('/dashboard?error=Zajęcia+nie+istnieją');
   }
 
-  // Nie pozwól odwołać zapisu na < 2 godziny przed
+  // No cancellations in the last two hours before the class.
   const classDate = new Date(classData.start_time);
   const hoursLeft = (classDate - new Date()) / (1000 * 60 * 60);
   if (hoursLeft < 2) {
@@ -482,15 +447,12 @@ router.post('/cancel/:classId/participants/:participantId', requireAuth, (req, r
     BookingModel.deleteBooking(bookingId);
   }
 
-  // Sprawdź i przenieś pierwszą osobę z listy rezerwowej (async)
+  // Not awaited: the promotion itself is synchronous, only its e-mail outlives the response; the service logs failures.
   checkAndPromoteWaitingList(classId);
 
   res.redirect(`/dashboard?success=Uczestnik+${encodeURIComponent(participant.first_name + ' ' + participant.last_name)}+został+wypisany`);
 });
 
-// ============================================================
-// POST /waitlist/cancel/:classId — Wypisanie z listy rezerwowej
-// ============================================================
 router.post('/waitlist/cancel/:classId', requireAuth, (req, res) => {
   const classId = parseInt(req.params.classId, 10);
   if (!Number.isInteger(classId) || classId < 1) {
@@ -509,10 +471,6 @@ router.post('/waitlist/cancel/:classId', requireAuth, (req, res) => {
   WaitingListModel.remove(req.user.id, classData.id);
   res.redirect('/dashboard?success=Wypisano+z+listy+rezerwowej');
 });
-
-// ============================================================
-// LEGAL PAGES (Public)
-// ============================================================
 
 router.get('/privacy', (req, res) => {
   res.render('user/privacy', {
@@ -535,9 +493,8 @@ router.get('/cookies', (req, res) => {
   });
 });
 
-// ============================================================
-// GET /qr — Link z kodu QR na ulotce (tracking wejść)
-// ============================================================
+// The address printed as a QR code on the leaflet: counts the visit (with a hashed IP, see utils/ipHash.js) and
+// opens the calendar. A failure to record never blocks the redirect.
 router.get('/qr', (req, res) => {
   try {
     QrScanModel.record(req.ip, req.get('user-agent'));

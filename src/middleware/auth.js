@@ -1,6 +1,5 @@
 /**
- * auth.js — Middleware autentykacji i helpery JWT
- * Obsługuje: magic link flow, sesje użytkownika, auth admina
+ * auth.js — magic-link tokens, the signed session cookie, and the middleware that loads the user and guards routes.
  */
 
 const jwt = require('jsonwebtoken');
@@ -16,19 +15,15 @@ assertStrongSecret('JWT_SECRET', JWT_SECRET);
 // Sessions are signed and checked with exactly one algorithm: a token signed any other way is not accepted.
 const JWT_ALGORITHM = 'HS256';
 
-/**
- * Generuje kryptograficznie bezpieczny token magic linku
- */
+/** 32 random bytes as hex: the one-time token of a login link. */
 function generateMagicToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-/**
- * Tworzy magic link i zapisuje token w bazie
- */
+/** Stores a new token for the user, valid for 15 minutes, and returns it with the login link that carries it. */
 function createMagicLink(userId) {
   const token = generateMagicToken();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minut
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   MagicTokenModel.create(userId, token, expiresAt);
 
@@ -36,7 +31,8 @@ function createMagicLink(userId) {
 }
 
 /**
- * Tworzy JWT sesji użytkownika (długożyjący — "pamiętaj na zawsze")
+ * The session JWT, valid for 90 days. It carries only the user id (plus e-mail and admin flag); loadUser reads the
+ * account from the database on every request, so roles and profile changes apply at once.
  */
 function createSessionToken(user) {
   return jwt.sign(
@@ -46,13 +42,13 @@ function createSessionToken(user) {
       isAdmin: user.is_admin === 1
     },
     JWT_SECRET,
-    { algorithm: JWT_ALGORITHM, expiresIn: '90d' } // 90 dni (3 miesiące)
+    { algorithm: JWT_ALGORITHM, expiresIn: '90d' }
   );
 }
 
 /**
- * Middleware: weryfikuje JWT z cookie i ustawia req.user
- * Nie blokuje — tylko dekoruje request jeśli token istnieje
+ * Sets req.user from the session cookie, or null. Never refuses a request: the require* guards below do that.
+ * An invalid or expired token, or one whose account no longer exists, clears the cookie.
  */
 function loadUser(req, res, next) {
   const token = req.cookies?.authToken;
@@ -73,7 +69,6 @@ function loadUser(req, res, next) {
       req.user = user;
     }
   } catch (err) {
-    // Token wygasł lub nieprawidłowy
     res.clearCookie('authToken');
     req.user = null;
   }
@@ -81,9 +76,7 @@ function loadUser(req, res, next) {
   next();
 }
 
-/**
- * Middleware: wymaga zalogowanego użytkownika
- */
+/** Requires a signed-in user: JSON clients get 401, browsers are sent to /login and back afterwards. */
 function requireAuth(req, res, next) {
   if (!req.user) {
     if (req.headers.accept?.includes('application/json')) {
@@ -94,9 +87,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-/**
- * Middleware: wymaga pełnego profilu (imię i nazwisko)
- */
+/** Requires a completed profile (first name, last name, age category); otherwise sends the user to complete it. */
 function requireProfile(req, res, next) {
   if (!req.user) return requireAuth(req, res, next);
 
@@ -106,9 +97,7 @@ function requireProfile(req, res, next) {
   next();
 }
 
-/**
- * Middleware: wymaga uprawnień admina
- */
+/** Requires an administrator; anyone else is sent to the admin login. */
 function requireAdmin(req, res, next) {
   if (!req.user || !req.user.is_admin) {
     return res.redirect('/admin/login');
@@ -116,9 +105,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-/**
- * Middleware: wymaga uprawnień instruktora lub admina
- */
+/** Requires an instructor or an administrator. */
 function requireInstructor(req, res, next) {
   if (!req.user || (!req.user.is_admin && !req.user.is_instructor)) {
     return res.redirect('/login?next=' + encodeURIComponent(req.originalUrl));
@@ -126,16 +113,14 @@ function requireInstructor(req, res, next) {
   next();
 }
 
-/**
- * Ustawia cookie sesji użytkownika
- */
+/** Sets the session cookie: HttpOnly, SameSite=Lax, Secure in production, as long-lived as the token. */
 function setAuthCookie(res, user) {
   const token = createSessionToken(user);
   res.cookie('authToken', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 90 * 24 * 60 * 60 * 1000 // 90 dni
+    maxAge: 90 * 24 * 60 * 60 * 1000
   });
 }
 

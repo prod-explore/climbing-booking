@@ -1,6 +1,6 @@
 /**
  * database.js — one entry point for the connection and every model (each lives in its own file in this directory).
- * Callers keep requiring '../models/database'.
+ * The rest of the app requires this module rather than the individual files.
  */
 
 const { initDatabase, getDb } = require('./connection');

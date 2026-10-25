@@ -1,12 +1,10 @@
 /**
- * age.js — Wspólny helper do obliczania wieku
- * Używany w: auth.routes, user.routes, admin.routes, database.js, szablonach EJS
+ * age.js — a person's age in completed years, from their birth date.
  */
 
 /**
- * Oblicza wiek na podstawie daty urodzenia.
- * @param {string|Date} birthDate — data urodzenia (ISO string lub Date)
- * @returns {number|null} — wiek w pełnych latach lub null jeśli brak/nieprawidłowa data
+ * @param {string|Date} birthDate  an ISO date string or a Date
+ * @returns {number|null}  completed years as of today (local time), or null for a missing or invalid date
  */
 function calculateAge(birthDate) {
   if (!birthDate) return null;

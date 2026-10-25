@@ -1,12 +1,12 @@
 /**
- * emailService.js — Wysyłka maili przez Resend: magic link logowania, wypisanie z zajęć, awans z listy rezerwowej.
- * Techniki anty-spam:
- *  - Proper From z display name dopasowanym do domeny
- *  - Reply-To = kontaktowy adres projektu (CONTACT_EMAIL)
- *  - List-Unsubscribe header (wymagany przez Gmail/Outlook dla bulk)
- *  - Text/plain alternative
- *  - Brak obrazków śledzących, brak ukrytych px
- *  - Wyraźna treść transakcyjna (użytkownik sam prosił o link)
+ * emailService.js — the transactional e-mails, sent through Resend: the login link, a participant removed by an
+ * administrator, and a promotion from the waiting list.
+ *
+ * What keeps them out of spam folders: a From address on the site's own (verified) domain with a display name,
+ * Reply-To set to the contact address, a plain-text part next to the HTML, no images or tracking pixels, and
+ * transactional headers (plus List-Unsubscribe on the login link).
+ *
+ * Each send function resolves with Resend's response and throws when Resend rejects the message.
  */
 
 const { Resend } = require('resend');
@@ -187,7 +187,7 @@ async function sendMagicLink(email, magicLink, isNewUser = false) {
     html: magicLinkEmailHTML(magicLink, isNewUser),
     text: magicLinkEmailText(magicLink, isNewUser),
     headers: {
-      // Pomaga filtrować jako wiadomość transakcyjną (nie bulk/marketing)
+      // Marks the message as transactional, not bulk or marketing mail.
       'X-Entity-Ref-ID':  `magic-link-${Date.now()}`,
       'Precedence':       'transactional',
       'List-Unsubscribe': `<mailto:${REPLY_TO}?subject=Unsubscribe>`
@@ -211,9 +211,6 @@ async function initEmailService() {
   catch (err) { console.warn('⚠️  Resend:', err.message); }
 }
 
-// ============================================================
-// E-mail: Powiadomienie o wypisaniu uczestnika przez admina
-// ============================================================
 function participantRemovedHTML(participantName, className, classDate) {
   return `<!DOCTYPE html>
 <html lang="pl" xmlns="http://www.w3.org/1999/xhtml">
@@ -288,9 +285,6 @@ async function sendParticipantRemovedEmail(toEmail, participantName, className, 
   return data;
 }
 
-// ============================================================
-// E-mail: Przeniesienie z listy rezerwowej na główną
-// ============================================================
 function waitingListPromotedHTML(firstName, className, classDate, dashboardLink) {
   return `<!DOCTYPE html>
 <html lang="pl" xmlns="http://www.w3.org/1999/xhtml">

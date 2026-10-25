@@ -1,27 +1,24 @@
 /**
- * security.js — Middleware bezpieczeństwa: rate limiting, nagłówki, sanityzacja
+ * security.js — rate limits, the HTTP security headers (helmet, CSP) and the stripping of HTML tags from form input.
+ *
+ * Every limiter keeps its counters in process memory: they reset on restart and are not shared between processes.
  */
 
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
-/**
- * Ogólny rate limit dla całej aplikacji
- */
+/** Every request after the health check, per client IP; tunable through RATE_LIMIT_WINDOW_MS / _MAX_REQUESTS. */
 const generalLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 min
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zbyt wiele żądań. Spróbuj ponownie za kilka minut.' }
 });
 
-/**
- * Ścisły rate limit dla endpointu wysyłki magic linku
- * Zapobiega spamowi e-mailowemu
- */
+/** Login-link requests per IP and hour: each one sends an e-mail, so this caps the mail one client can trigger. */
 const magicLinkLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 godzina
+  windowMs: 60 * 60 * 1000,
   max: parseInt(process.env.MAGIC_LINK_RATE_LIMIT_MAX) || 5,
   message: { error: 'Wysłano już kilka linków. Sprawdź skrzynkę lub spróbuj za godzinę.' },
   standardHeaders: true,
@@ -29,9 +26,9 @@ const magicLinkLimiter = rateLimit({
 });
 
 /**
- * Okno przesuwne w pamięci: najwyżej `max` zdarzeń na klucz w czasie `windowMs`.
- * `take(key)` zwraca true i zapisuje zdarzenie albo false, gdy limit jest wyczerpany.
- * Stan ginie przy restarcie, co przy limicie godzinnym na adres e-mail jest akceptowalne.
+ * An in-memory sliding window: at most `max` events per key within `windowMs`.
+ * `take(key)` records an event and returns true, or returns false when the key has used up its window.
+ * The state is lost on restart, which is acceptable for an hourly limit per e-mail address.
  */
 function createWindowLimiter({ max, windowMs, now = () => Date.now() }) {
   const hits = new Map();
@@ -49,33 +46,27 @@ function createWindowLimiter({ max, windowMs, now = () => Date.now() }) {
       const list = recent(key, t);
       if (list.length >= max) return false;
       hits.set(key, [...list, t]);
-      // Okazjonalnie sprzątaj klucze, do których nikt już nie wraca, żeby mapa nie rosła bez końca.
+      // Past a few thousand keys, sweep out the ones whose events have all expired, so the map cannot grow without bound.
       if (hits.size > 5000) for (const k of [...hits.keys()]) recent(k, t);
       return true;
     }
   };
 }
 
-/**
- * Limit wysyłek magic linku na jeden adres e-mail (niezależnie od IP).
- */
+/** Login links per e-mail address and hour, whatever the IP (MAGIC_LINK_EMAIL_LIMIT_MAX). */
 const emailRequestLimiter = createWindowLimiter({
   max: parseInt(process.env.MAGIC_LINK_EMAIL_LIMIT_MAX) || 3,
   windowMs: 60 * 60 * 1000
 });
 
-/**
- * Rate limit dla endpointów API (zapisy, itp.)
- */
+/** Booking submissions per IP (POST /book/:classId). */
 const apiLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 min
+  windowMs: 10 * 60 * 1000,
   max: 30,
   message: { error: 'Za dużo żądań API. Poczekaj chwilę.' }
 });
 
-/**
- * Rate limit dla panelu admina
- */
+/** Admin login-link requests per IP. */
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -83,7 +74,8 @@ const adminLoginLimiter = rateLimit({
 });
 
 /**
- * Konfiguracja Helmet — nagłówki bezpieczeństwa HTTP
+ * Helmet's security headers. The CSP admits Google Fonts and the Google Maps embed on the home page; scripts keep
+ * 'unsafe-inline' because the views still contain inline <script> blocks.
  */
 const helmetConfig = helmet({
   contentSecurityPolicy: {
@@ -97,14 +89,15 @@ const helmetConfig = helmet({
       connectSrc: ["'self'", 'https://maps.googleapis.com']
     }
   },
-  crossOriginEmbedderPolicy: false, // Wymagane dla Google Maps embed
+  // Off: the Google Maps iframe does not opt in to cross-origin embedding, so COEP would block it.
+  crossOriginEmbedderPolicy: false,
   // Not helmet's default `no-referrer`: under it browsers send `Origin: null` on every form POST, and the same-origin
   // check (sameOrigin.js) would refuse all of them. `same-origin` still sends no Referer to other sites.
   referrerPolicy: { policy: 'same-origin' }
 });
 
 /**
- * Sanityzuje prosty tekst — usuwa tagi HTML.
+ * Removes anything shaped like an HTML tag (`<...>`) and trims the result.
  * Does not cut the length: each route enforces its own limit (a class description may be 1000 characters),
  * and express.json/urlencoded already cap the body at 10 kB.
  */
@@ -113,9 +106,7 @@ function sanitizeText(str) {
   return str.replace(/<[^>]*>/g, '').trim();
 }
 
-/**
- * Middleware sanityzujący body requesta
- */
+/** Applies sanitizeText to every top-level string field of the request body (nested values are left alone). */
 function sanitizeBody(req, res, next) {
   if (req.body && typeof req.body === 'object') {
     for (const key of Object.keys(req.body)) {

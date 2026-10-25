@@ -1,8 +1,5 @@
--- ============================================================
--- Migration 007 — Site settings
--- Dane, które identyfikują prowadzącego i obiekt (administrator danych, NIP, adres obiektu),
--- są ustawieniami edytowanymi w panelu admina, a nie tekstem w szablonach.
--- ============================================================
+-- Migration 007: site settings. The details that identify the operator and the venue (data controller, NIP,
+-- venue address) are settings edited in the admin panel, not text in the templates.
 
 CREATE TABLE IF NOT EXISTS site_settings (
   key        TEXT PRIMARY KEY,

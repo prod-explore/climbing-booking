@@ -1,6 +1,6 @@
 /**
- * instructor.routes.js — Panel instruktora
- * Pozwala instruktorom na podgląd ich zajęć i list obecności.
+ * instructor.routes.js — the instructor panel: the classes linked to the instructor's account and their attendance
+ * lists. Read-only; administrators may open it too.
  */
 
 const express = require('express');
@@ -9,9 +9,6 @@ const { ClassModel } = require('../models/database');
 const { attendanceList } = require('../services/attendance');
 const { requireInstructor } = require('../middleware/auth');
 
-// ============================================================
-// GET /instructor — Dashboard (lista przypisanych zajęć)
-// ============================================================
 router.get('/instructor', requireInstructor, (req, res) => {
   let fullName = req.user.first_name;
   if (req.user.last_name) {
@@ -29,9 +26,6 @@ router.get('/instructor', requireInstructor, (req, res) => {
   });
 });
 
-// ============================================================
-// GET /instructor/classes/:id/attendance — Lista obecności
-// ============================================================
 router.get('/instructor/classes/:id/attendance', requireInstructor, (req, res) => {
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/instructor?error=Nie+znaleziono+zajęć');
