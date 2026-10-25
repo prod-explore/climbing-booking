@@ -1,0 +1,7 @@
+# For development on one machine: opens the app on http://127.0.0.1:3000 without a reverse proxy.
+# Copy to docker-compose.override.yml (gitignored); Compose loads it automatically. Production does not use it:
+# there the reverse proxy reaches the container over climbing-booking-network and no port is published.
+services:
+  app:
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"

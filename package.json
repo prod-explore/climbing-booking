@@ -1,6 +1,7 @@
 {
   "name": "climbing-booking",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Class registration for a climbing school: schedule, adult and child capacity pools, waiting list, magic-link login",
   "main": "src/app.js",

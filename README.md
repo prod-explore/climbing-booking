@@ -219,10 +219,12 @@ After the first admin login, fill in the operator and venue details under *Ustaw
 
 ```bash
 cp .env.example .env    # set JWT_SECRET, APP_URL, ADMIN_EMAILS, RESEND_API_KEY
-docker compose up --build -d
+scripts/deploy.sh       # pulls the published image (amd64 and arm64), starts it, waits for the health check
 ```
 
-The container `climbing-booking-app` runs in production mode as the unprivileged `node` user, keeps the database on the volume `climbing_booking_data`, has a health check on `/healthz`, and is published on `127.0.0.1:3000` only (`HOST_PORT` changes the port). Put a TLS-terminating reverse proxy in front of it, or attach the proxy to the `climbing-booking-network` network.
+The container `climbing-booking-app` runs in production mode as the unprivileged `node` user, keeps the database on the volume `climbing_booking_data` and has a health check on `/healthz`. **No port is published on the host**: the reverse proxy joins the `climbing-booking-network` network and reaches the app at `climbing-booking-app:3000` (with [nginx-reverse-proxy](https://github.com/prod-explore/nginx-reverse-proxy), list that network in its `docker-compose.override.yml`). To try it on one machine without a proxy, copy `docker-compose.override.example.yml` to `docker-compose.override.yml`, which opens `127.0.0.1:3000`.
+
+The image is built by the [Image workflow](.github/workflows/image.yml) on every push to `main` (GitHub Container Registry, `ghcr.io/prod-explore/climbing-booking`), so nothing is compiled on the server. `scripts/deploy.sh` is the whole update procedure: it pulls, restarts, waits for `healthy` and, if the new container does not become healthy, puts the previous image back and exits non-zero. `scripts/deploy.sh sha-1a2b3c4` deploys (or rolls back to) a given build. To build from source instead: `docker compose up --build -d`. The database is on the volume and is never touched by an update.
 
 ---
 
@@ -233,7 +235,7 @@ npm test       # jest
 npm run lint   # ESLint
 ```
 
-There are more than 140 tests in 16 files (jest reported 141 when this README was last updated; the figure here is rounded down to the ten). The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app (supertest, no port opened); only the e-mail sender is replaced where a test would send mail:
+There are more than 170 tests in 21 files (jest reported 170 when this README was last updated; the figure here is rounded down to the ten). The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app (supertest, no port opened); only the e-mail sender is replaced where a test would send mail:
 
 - **Capacity** (`BookingModel.book`): a refused group leaves nothing behind, the adult and child pools stay apart, duplicates use no places, the waiting list is promoted through the real service.
 - **Login tokens**: expiry (including a token that expired a minute ago, the same day), single use.
@@ -275,3 +277,9 @@ Dependabot proposes weekly updates for npm packages, the Docker base image and t
 - **A session is a 90-day JWT** that cannot be revoked before it expires; logging out clears the cookie only. Server-side sessions (a session table) would fix it.
 - **Rate limits live in memory**, so they reset on restart, and the app is a single process by design (SQLite, no shared state).
 - **Input is sanitised twice**: tags are stripped from every body field (`sanitizeBody`) and EJS escapes on output. The second is the one that protects; the first is a legacy of the early versions.
+
+---
+
+## License
+
+[MIT](LICENSE).
