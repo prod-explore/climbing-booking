@@ -235,7 +235,7 @@ npm test       # jest
 npm run lint   # ESLint
 ```
 
-There are more than 171 tests in 22 files (jest reported 170 when this README was last updated; the figure here is rounded down to the ten). The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app (supertest, no port opened); only the e-mail sender is replaced where a test would send mail:
+There are more than 170 tests in 22 files (jest reported 171 when this README was last updated; the figure here is rounded down to the ten). The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app (supertest, no port opened); only the e-mail sender is replaced where a test would send mail:
 
 - **Capacity** (`BookingModel.book`): a refused group leaves nothing behind, the adult and child pools stay apart, duplicates use no places, the waiting list is promoted through the real service.
 - **Login tokens**: expiry (including a token that expired a minute ago, the same day), single use.
