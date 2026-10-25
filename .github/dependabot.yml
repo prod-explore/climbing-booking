@@ -1,28 +1,29 @@
 version: 2
+# Weekly; minor and patch updates of each ecosystem come as one pull request. Major versions of npm packages and of the
+# Node base image are chosen by hand, together with `engines` and CI, so they are ignored here; `npm audit` and CI still
+# force an earlier bump when an advisory needs it. New majors of GitHub Actions are wanted and arrive as pull requests.
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule:
-      interval: weekly
+    schedule: { interval: weekly }
     open-pull-requests-limit: 5
     groups:
-      npm-minor-and-patch:
-        update-types: [minor, patch]
-
+      minor-and-patch: { update-types: [minor, patch] }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /
-    schedule:
-      interval: weekly
+    schedule: { interval: weekly }
     open-pull-requests-limit: 2
     groups:
-      docker-minor-and-patch:
-        update-types: [minor, patch]
-
+      minor-and-patch: { update-types: [minor, patch] }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
     groups:
-      actions-minor-and-patch:
-        update-types: [minor, patch]
+      minor-and-patch: { update-types: [minor, patch] }
