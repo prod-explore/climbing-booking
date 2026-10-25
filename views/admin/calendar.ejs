@@ -2,7 +2,6 @@
 
 <div class="admin-layout">
 
-  <!-- Sidebar -->
   <aside class="admin-sidebar">
     <%- include('../partials/admin-sidebar-brand') %>
     <nav class="admin-nav">
@@ -23,7 +22,6 @@
     </div>
   </aside>
 
-  <!-- Main content -->
   <main class="admin-main">
     <div class="admin-topbar">
       <div>
@@ -42,7 +40,6 @@
       <div class="alert alert--error"><%= error %></div>
     <% } %>
 
-    <!-- Nawigacja tygodniowa -->
     <div class="kcal-week-nav">
       <a href="/admin/calendar?week=<%= weekOffset - 1 %>" class="btn btn--outline btn--sm">← Poprzedni tydzień</a>
       <span class="kcal-week-label">
@@ -53,12 +50,11 @@
     </div>
 
     <%
-      /* ========== PRE-PROCESSING: group events by day, detect overlaps ========== */
+      /* Lay the week out: each class goes to its day, and overlapping classes share the day's width in columns. */
       const PX_PER_HOUR = 64;
       const totalHours = END_HOUR - START_HOUR;
       const gridHeight = totalHours * PX_PER_HOUR;
 
-      /* Build per-day arrays */
       const dayEvents = [[], [], [], [], [], [], []];
 
       classes.forEach(cls => {
@@ -110,7 +106,7 @@
         });
       });
 
-      /* Overlap detection: greedy column assignment per day */
+      /* Each class takes the first column whose last class has ended by its start. */
       dayEvents.forEach(events => {
         events.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
@@ -144,10 +140,8 @@
       });
     %>
 
-    <!-- ========== WEEKLY GRID ========== -->
     <div class="kcal-wrapper">
       <div class="kcal-scroll">
-        <!-- Header row -->
         <div class="kcal-header">
           <div class="kcal-gutter-hd"></div>
           <% for (let d = 0; d < 7; d++) {
@@ -162,7 +156,6 @@
           <% } %>
         </div>
         <div class="kcal-body" style="height:calc(var(--hh) * <%= totalHours %>);">
-          <!-- Time gutter -->
           <div class="kcal-gutter">
             <% for (let h = START_HOUR; h < END_HOUR; h++) { %>
             <div class="kcal-gutter-label" style="top:calc(var(--hh) * <%= h - START_HOUR %>);">
@@ -171,7 +164,6 @@
             <% } %>
           </div>
 
-          <!-- 7 day columns -->
           <div class="kcal-cols">
             <% for (let d = 0; d < 7; d++) {
               const day = new Date(weekStart);
@@ -179,16 +171,13 @@
               const isToday = day.toDateString() === new Date().toDateString();
             %>
             <div class="kcal-col <%= isToday ? 'kcal-col--today' : '' %>">
-              <!-- Hour gridlines -->
               <% for (let h = 0; h <= totalHours; h++) { %>
               <div class="kcal-gridline" style="top:calc(var(--hh) * <%= h %>);"></div>
               <% } %>
-              <!-- Half-hour gridlines -->
               <% for (let h = 0; h < totalHours; h++) { %>
               <div class="kcal-gridline kcal-gridline--half" style="top:calc(var(--hh) * <%= h %> + var(--hh) * 0.5);"></div>
               <% } %>
 
-              <!-- Events for this day -->
               <% dayEvents[d].forEach(ev => {
                 const topMult    = (ev.offsetMin / 60);
                 const heightMult = (ev.duration_min / 60);
@@ -244,7 +233,6 @@
   </main>
 </div>
 
-<!-- ADMIN MODAL SZCZEGÓŁÓW -->
 <div id="adminClassModal" class="cal-modal-overlay" aria-modal="true" role="dialog" style="display:none;">
   <div class="cal-modal" style="width:min(580px, 95vw);">
     <button class="cal-modal-close" id="adminModalClose" aria-label="Zamknij">✕</button>
@@ -256,20 +244,16 @@
       <div class="cal-modal-meta" id="adminModalMeta"></div>
       <p class="cal-modal-desc" id="adminModalDesc"></p>
 
-      <!-- Spots bars -->
       <div class="acal-spots-section" id="adminModalSpots"></div>
 
-      <!-- Status badge -->
       <div style="margin-bottom:1rem;" id="adminModalStatus"></div>
 
-      <!-- Admin actions -->
       <div class="acal-admin-actions" id="adminModalActions"></div>
     </div>
   </div>
 </div>
 
 <script>
-  /* ── Admin Modal logic ───────────────────────────────────── */
   const modal        = document.getElementById('adminClassModal');
   const modalClose   = document.getElementById('adminModalClose');
   const modalAccent  = document.getElementById('adminModalAccent');
@@ -309,12 +293,10 @@
       return span;
     }));
 
-    // Description
     const fullDesc = d.description || '';
     modalDesc.textContent = fullDesc;
     modalDesc.style.display = fullDesc ? '' : 'none';
 
-    // Spots bars
     let spotsHtml = '<div class="acal-spots-bars">';
     spotsHtml += `
       <div class="acal-spot-row">
@@ -333,7 +315,6 @@
     spotsHtml += '</div>';
     modalSpots.innerHTML = spotsHtml;
 
-    // Status
     let statusHtml = '';
     if (isCancelled) {
       statusHtml = '<span class="badge badge--cancelled">Odwołane</span>';
@@ -346,7 +327,6 @@
     }
     modalStatus.innerHTML = statusHtml;
 
-    // Actions
     let actionsHtml = `
       <a href="/admin/classes/${d.id}/attendance" class="btn btn--outline btn--sm">👥 Lista uczestników</a>
       <a href="/admin/classes/${d.id}/edit" class="btn btn--outline btn--sm">✏️ Edytuj</a>`;
@@ -372,7 +352,7 @@
 
     modalActions.innerHTML = actionsHtml;
 
-    // Rebind confirm handlers for injected forms
+    // main.js binds its confirmation dialog only to the forms present at page load, so these get the browser's own.
     modalActions.querySelectorAll('[data-confirm]').forEach(form => {
       form.addEventListener('submit', function(e) {
         if (!confirm(this.dataset.confirm)) e.preventDefault();
@@ -389,7 +369,6 @@
     document.body.style.overflow = '';
   }
 
-  /* Bind events */
   document.querySelectorAll('.kcal-ev').forEach(el => {
     el.addEventListener('click', () => openAdminModal(el));
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAdminModal(el); } });

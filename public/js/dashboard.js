@@ -3,7 +3,6 @@
  * the active/past booking tabs. Loaded at the end of <body>, so the elements already exist.
  */
 
-/* ── Modal logic ───────────────────────────────────────── */
 const modal        = document.getElementById('classModal');
 const modalClose   = document.getElementById('modalClose');
 const modalAccent  = document.getElementById('modalAccent');
@@ -74,7 +73,7 @@ function openModal(el) {
     actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
   } else if (isFull) {
     if (isLoggedIn) {
-      // Pełne zajęcia — prowadź do /book gdzie może być lista rezerwowa
+      // A full class still links to /book, which offers the waiting list when the class has one.
       actions = `<a href="/book/${d.id}" class="btn btn--outline btn--lg">📋 Sprawdź listę rezerwową →</a>`;
     } else {
       actions = `<span class="badge badge--full">Brak miejsc</span>`;
@@ -96,7 +95,6 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
-/* Bind events */
 document.querySelectorAll('.kcal-ev').forEach(el => {
   el.addEventListener('click', () => openModal(el));
   el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(el); } });
@@ -106,7 +104,7 @@ modalClose.addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-/* ── Booking tabs logic ────────────────────────────────── */
+/** Shows the booking cards whose data-status matches `tab` ('active' or 'past'), or an empty-state message. */
 function switchBookingTab(tab) {
   const btns = document.querySelectorAll('.custom-tab-btn');
   const cards = document.querySelectorAll('#bookingsList .booking-card');
@@ -142,8 +140,7 @@ function switchBookingTab(tab) {
   }
 }
 
-// Initialize booking tabs – DOM is already ready at this point (inline script at bottom of body).
-// Listeners, not onclick attributes: the CSP (script-src-attr 'none') blocks inline handlers.
+// Listeners, not inline handler attributes: the CSP (script-src-attr 'none') blocks those.
 document.querySelectorAll('.custom-tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchBookingTab(btn.dataset.target));
 });

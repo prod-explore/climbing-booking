@@ -4,7 +4,6 @@
 <div class="dashboard">
   <div class="container">
 
-    <!-- Header -->
     <div class="dashboard-header">
       <div>
         <h1>Cześć, <%= user.first_name %>! 👋</h1>
@@ -18,7 +17,8 @@
       <% } %>
     </div>
 
-    <!-- BLOKADA: Niezweryfikowane konto niepełnoletniego -->
+    <%# An account completed by someone under 18 sees this instead of the booking features until an administrator
+        confirms parental consent (POST /consent/request asks for it). %>
     <% if (!user.is_verified) { %>
       <div class="consent-block">
         <div class="consent-block-icon">🔒</div>
@@ -43,7 +43,6 @@
       </div>
 
     <% } else { %>
-      <!-- Moje zapisy -->
       <section class="dashboard-section">
         <h2 class="dashboard-section-title">Moje zapisy</h2>
 
@@ -129,7 +128,6 @@
         <% } %>
       </section>
 
-      <!-- Lista rezerwowa użytkownika -->
       <% if (typeof waitlistBookings !== 'undefined' && waitlistBookings && waitlistBookings.length > 0) { %>
       <section class="dashboard-section">
         <h2 class="dashboard-section-title">🕐 Lista rezerwowa</h2>
@@ -174,7 +172,6 @@
       </section>
       <% } %>
 
-      <!-- Dostępne terminy — widok tygodniowy -->
       <section class="dashboard-section">
         <div class="dashboard-section-head">
           <h2 class="dashboard-section-title dashboard-section-title--inline">Dostępne terminy</h2>
@@ -195,12 +192,11 @@
           </div>
         <% } else { %>
           <%
-            /* ========== PRE-PROCESSING: group events by day, detect overlaps ========== */
+            /* Lay the week out: each class goes to its day, and overlapping classes share the day's width in columns. */
             const PX_PER_HOUR = 64;
             const totalHours = END_HOUR - START_HOUR;
             const gridHeight = totalHours * PX_PER_HOUR;
 
-            /* Build per-day arrays */
             const dayEvents = [[], [], [], [], [], [], []];
 
             weekClasses.forEach(cls => {
@@ -243,11 +239,11 @@
               });
             });
 
-            /* Overlap detection: greedy column assignment per day */
+            /* Each class takes the first column whose last class has ended by its start. */
             dayEvents.forEach(events => {
               events.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
-              const columns = []; /* columns[c] = [events...] */
+              const columns = [];
               events.forEach(ev => {
                 let placed = false;
                 for (let c = 0; c < columns.length; c++) {
@@ -265,7 +261,7 @@
                 }
               });
 
-              /* Compute totalCols per overlap cluster */
+              /* A class's width is split by the highest column among the classes it overlaps. */
               events.forEach(ev => {
                 let maxCol = ev.col;
                 events.forEach(other => {
@@ -278,11 +274,9 @@
             });
           %>
 
-          <!-- ========== WEEKLY GRID ========== -->
           <div class="kcal-wrapper">
-            <!-- Scrollable area: headers + body together -->
+            <%# Header and body share one scroll container, so they scroll sideways together on narrow screens. %>
             <div class="kcal-scroll">
-              <!-- Header row: gutter + 7 days -->
               <div class="kcal-header">
                 <div class="kcal-gutter-hd"></div>
                 <% for (let d = 0; d < 7; d++) {
@@ -298,7 +292,6 @@
               </div>
               <%# The style attributes left in the grid are positions computed from each class's time, not styling. %>
               <div class="kcal-body" style="height:calc(var(--hh) * <%= totalHours %>);">
-                <!-- Time gutter -->
                 <div class="kcal-gutter">
                   <% for (let h = START_HOUR; h < END_HOUR; h++) { %>
                   <div class="kcal-gutter-label" style="top:calc(var(--hh) * <%= h - START_HOUR %>);">
@@ -307,7 +300,6 @@
                   <% } %>
                 </div>
 
-                <!-- 7 day columns -->
                 <div class="kcal-cols">
                   <% for (let d = 0; d < 7; d++) {
                     const day = new Date(weekStart);
@@ -315,16 +307,13 @@
                     const isToday = day.toDateString() === new Date().toDateString();
                   %>
                   <div class="kcal-col <%= isToday ? 'kcal-col--today' : '' %>">
-                    <!-- Hour gridlines -->
                     <% for (let h = 0; h <= totalHours; h++) { %>
                     <div class="kcal-gridline" style="top:calc(var(--hh) * <%= h %>);"></div>
                     <% } %>
-                    <!-- Half-hour gridlines -->
                     <% for (let h = 0; h < totalHours; h++) { %>
                     <div class="kcal-gridline kcal-gridline--half" style="top:calc(var(--hh) * <%= h %> + var(--hh) * 0.5);"></div>
                     <% } %>
 
-                    <!-- Events for this day -->
                     <% dayEvents[d].forEach(ev => {
                       const topMult    = (ev.offsetMin / 60);
                       const heightMult = (ev.duration_min / 60);
@@ -378,7 +367,6 @@
   </div>
 </div>
 
-<!-- MODAL SZCZEGÓŁÓW -->
 <div id="classModal" class="cal-modal-overlay" aria-modal="true" role="dialog" hidden>
   <div class="cal-modal">
     <button class="cal-modal-close" id="modalClose" aria-label="Zamknij">✕</button>

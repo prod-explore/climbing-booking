@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <!-- Lista do druku — czysta tabela z checkboxami -->
+    <%# The printed part of the page: the print styles below hide the .no-print columns and sections. %>
     <div class="admin-section attendance-print-section">
       <h2>Lista uczestników</h2>
       <table class="admin-table attendance-table">
@@ -117,7 +117,6 @@
       </table>
     </div>
 
-    <!-- Szczegóły rezerwacji -->
     <div class="admin-section no-print">
       <h2>Szczegóły rezerwacji (<%= bookings.length %>)</h2>
       <% bookings.forEach(b => { %>
@@ -145,7 +144,6 @@
     </div>
 
     <% if (typeof waitingList !== 'undefined' && waitingList && waitingList.length > 0) { %>
-    <!-- Lista rezerwowa -->
     <div class="admin-section no-print">
       <h2>🕐 Lista rezerwowa (<%= waitingList.length %>)</h2>
       <p style="font-size:14px;color:#666;margin-bottom:12px;">

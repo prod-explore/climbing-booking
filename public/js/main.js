@@ -1,9 +1,8 @@
 /**
- * main.js — Frontend JavaScript
- * Animacje, interakcje, UX enhancements
+ * main.js — shared page behaviour: cards fade in as they scroll into view, the success/info/error query parameters
+ * become a toast, and forms with a data-confirm attribute ask for confirmation in a modal before submitting.
  */
 
-// Animacja wejścia elementów przy scrollu
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if (entry.isIntersecting) {
@@ -20,7 +19,7 @@ document.querySelectorAll('.feature-card, .class-card, .calendar-row').forEach(e
   observer.observe(el);
 });
 
-// Flash query params -> alert
+// The server reports the outcome of a form by redirecting with ?success=, ?info= or ?error=.
 const params = new URLSearchParams(window.location.search);
 const success = params.get('success');
 const info    = params.get('info');
@@ -44,7 +43,7 @@ showFlash(success, 'success');
 showFlash(info, 'info');
 showFlash(error, 'error');
 
-// Usuń query params z URL po wyświetleniu
+// Drop them from the address, so a reload or a shared link does not show the message again.
 if (success || info || error) {
   const url = new URL(window.location);
   url.searchParams.delete('success');
@@ -53,7 +52,7 @@ if (success || info || error) {
   window.history.replaceState({}, '', url);
 }
 
-// Custom Confirmation Modal
+// Binds to the forms present when the page loads; forms added later need their own handler.
 document.addEventListener('DOMContentLoaded', () => {
   const formsWithConfirm = document.querySelectorAll('form[data-confirm]');
   
@@ -149,7 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         modalOverlay.style.display = 'flex';
-        modalOverlay.offsetHeight; // force reflow
+        // Reading offsetHeight forces a layout, so the opacity transition starts from display:flex.
+        modalOverlay.offsetHeight;
         modalOverlay.classList.add('active');
       });
     });

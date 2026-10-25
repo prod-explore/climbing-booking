@@ -15,7 +15,7 @@
     bottom: 24px;
     left: 24px;
     right: 24px;
-    z-index: 999999; /* Bardzo wysoki z-index */
+    z-index: 999999;
     background: #1a1d17;
     color: white;
     padding: 1.25rem 1.75rem;
@@ -23,7 +23,7 @@
     box-shadow: 0 20px 50px -10px rgba(0,0,0,0.5);
     border: 1px solid rgba(255,255,255,0.15);
     backdrop-filter: blur(12px);
-    display: none; /* Domyślnie ukryty, pokazywany przez JS */
+    display: none; /* shown by the script below until the visitor accepts */
     animation: fwFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
@@ -63,7 +63,8 @@
 <script>
   (function() {
     const BANNER_ID = 'fw-cookie-banner';
-    const KEY = 'fw_cookies_accepted_v1'; // Nowy klucz, aby wymusić pokazanie u wszystkich
+    // Changing the key shows the banner again to everyone, including visitors who accepted an earlier version.
+    const KEY = 'fw_cookies_accepted_v1';
     
     const banner = document.getElementById(BANNER_ID);
     const acceptBtn = document.getElementById('fw-accept-cookies');

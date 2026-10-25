@@ -1,15 +1,13 @@
-/* ============================================================
-   Fantastyczne Wspinanie — System Design
-   Paleta: Fantastyczne Wspinanie (#99C24D) — stonowany minimalizm
-   Font: Barlow Condensed (nagłówki) + Barlow (tekst)
-   Mobile-first
-   ============================================================ */
+/*
+ * main.css — the one stylesheet of every page. Mobile-first; the brand green (#99C24D) with muted neutrals;
+ * Barlow Condensed for headings and Barlow for text (both from Google Fonts, see views/partials/head.ejs).
+ */
 
 /* --- RESET & VARIABLES --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Marka (logo FW) + odcienie do UI */
+  /* The brand colour of the logo, and the shades the interface derives from it */
   --brand:          #99C24D;
   --brand-hover:    #87aa44;
   --primary:        #4d5a3a;
@@ -1541,7 +1539,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   line-height: 1.4;
 }
 
-/* --- CONSENT BLOCK (Blokada dla niezweryfikowanych dzieci) --- */
+/* --- CONSENT BLOCK (shown to an unverified minor instead of the booking features) --- */
 .consent-block {
   text-align: center;
   padding: 3rem 2rem;
@@ -1558,7 +1556,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 .consent-contact { margin-top: 2rem; font-size: 0.85rem; color: var(--text-light); }
 .consent-contact a { color: var(--primary); font-weight: 600; }
 
-/* --- SPOTS INFO BOX (podwójne paski na stronie zapisu) --- */
+/* --- SPOTS INFO BOX (adult and child places on the booking page) --- */
 .spots-info-box {
   display: flex;
   flex-direction: column;
@@ -1577,7 +1575,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 }
 .spots-info-row strong { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; }
 
-/* Spots rows na kafelkach zajęć */
+/* Places rows on class cards */
 .class-card-spots { display: flex; flex-direction: column; gap: 3px; margin-top: 0.5rem; }
 .spots-row { font-size: 0.82rem; color: var(--text-muted); }
 
@@ -1633,10 +1631,10 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 }
 
 
-/* ============================================================
-   KCAL — New weekly calendar (calendar page)
-   Pixel-based positioning, overlap columns, rich event cards
-   ============================================================ */
+/* --- WEEKLY CALENDAR (kcal-*) ---
+   The week grid of the home page, the calendar, the participant dashboard and the admin calendar. Classes are placed
+   by pixel offsets from their start time (--hh is the height of one hour); overlapping classes share the day's width
+   in columns. */
 
 .kcal-wrapper {
   --hh: 64px;
@@ -1647,7 +1645,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   overflow: hidden;
 }
 
-/* ── Header row ───────────────────────────────────────── */
+/* Header row */
 .kcal-header {
   display: grid;
   grid-template-columns: 56px repeat(7, 1fr);
@@ -1700,7 +1698,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   font-size: .95rem;
 }
 
-/* ── Scroll container ─────────────────────────────────── */
+/* Scroll container */
 .kcal-scroll {
   overflow-x: auto;
   overflow-y: auto;
@@ -1708,7 +1706,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Grid body ────────────────────────────────────────── */
+/* Grid body */
 .kcal-body {
   display: grid;
   grid-template-columns: 56px 1fr;
@@ -1716,7 +1714,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   min-width: 640px;
 }
 
-/* ── Time gutter ──────────────────────────────────────── */
+/* Time gutter */
 .kcal-gutter {
   position: relative;
   border-right: 1px solid var(--border);
@@ -1735,7 +1733,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   white-space: nowrap;
 }
 
-/* ── Day columns container ────────────────────────────── */
+/* Day columns */
 .kcal-cols {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1749,7 +1747,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   background: rgba(153, 194, 77, 0.04);
 }
 
-/* ── Gridlines ────────────────────────────────────────── */
+/* Gridlines */
 .kcal-gridline {
   position: absolute;
   left: 0;
@@ -1763,7 +1761,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   border-top: 1px dashed rgba(0,0,0,0.05);
 }
 
-/* ── Event card ───────────────────────────────────────── */
+/* Event card */
 .kcal-ev {
   position: absolute;
   border-radius: 6px;
@@ -1840,7 +1838,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   margin-top: auto;
 }
 
-/* ── Mobile: horizontal scroll ─────────────────────────── */
+/* Mobile: horizontal scroll */
 @media (max-width: 768px) {
   .kcal-wrapper { --hh: 48px; }
   .kcal-body { min-width: 580px; }
@@ -1858,7 +1856,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   .kcal-day-num { font-size: 1rem; }
 }
 
-/* ── Week navigation bar ──────────────────────────────── */
+/* Week navigation bar */
 .kcal-week-nav {
   display: flex;
   align-items: center;
@@ -1881,7 +1879,7 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   .kcal-week-nav .btn { padding: 6px 10px; font-size: .82rem; }
 }
 
-/* --- FOOTER REFACTORED --- */
+/* --- FOOTER (continued) --- */
 .footer-main {
   padding: 5rem 0 2rem 0;
   background: var(--primary-dark);
@@ -2019,10 +2017,8 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
   border-radius: 4px;
 }
 
-/* ============================================================
-   ACAL — Admin Calendar extras
-   Spots tag on events, spots bars in modal, action buttons
-   ============================================================ */
+/* --- ADMIN CALENDAR (acal-*) ---
+   Additions for views/admin/calendar.ejs: the places tag on events, the places bars and action buttons of its modal. */
 
 /* Spots tag on event card */
 .kcal-ev-spots-tag {
