@@ -9,7 +9,6 @@
       <p>Kliknij na zajęcia, aby zobaczyć szczegóły i zapisać się.</p>
     </div>
 
-    <!-- Nawigacja tygodniowa -->
     <div class="kcal-week-nav">
       <a href="/calendar?week=<%= weekOffset - 1 %>" class="btn btn--outline btn--sm">← Poprzedni tydzień</a>
       <span class="kcal-week-label">
@@ -20,12 +19,11 @@
     </div>
 
     <%
-      /* ========== PRE-PROCESSING: group events by day, detect overlaps ========== */
+      /* Lay the week out: each class goes to its day, and overlapping classes share the day's width in columns. */
       const PX_PER_HOUR = 64;
       const totalHours = END_HOUR - START_HOUR;
       const gridHeight = totalHours * PX_PER_HOUR;
 
-      /* Build per-day arrays */
       const dayEvents = [[], [], [], [], [], [], []];
 
       classes.forEach(cls => {
@@ -68,11 +66,11 @@
         });
       });
 
-      /* Overlap detection: greedy column assignment per day */
+      /* Each class takes the first column whose last class has ended by its start. */
       dayEvents.forEach(events => {
         events.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
-        const columns = []; /* columns[c] = [events...] */
+        const columns = [];
         events.forEach(ev => {
           let placed = false;
           for (let c = 0; c < columns.length; c++) {
@@ -90,7 +88,7 @@
           }
         });
 
-        /* Compute totalCols per overlap cluster */
+        /* A class's width is split by the highest column among the classes it overlaps. */
         events.forEach(ev => {
           let maxCol = ev.col;
           events.forEach(other => {
@@ -103,11 +101,9 @@
       });
     %>
 
-    <!-- ========== WEEKLY GRID ========== -->
     <div class="kcal-wrapper">
-      <!-- Scrollable area: headers + body together -->
+      <%# Header and body share one scroll container, so they scroll sideways together on narrow screens. %>
       <div class="kcal-scroll">
-        <!-- Header row: gutter + 7 days -->
         <div class="kcal-header">
           <div class="kcal-gutter-hd"></div>
           <% for (let d = 0; d < 7; d++) {
@@ -122,7 +118,6 @@
           <% } %>
         </div>
         <div class="kcal-body" style="height:calc(var(--hh) * <%= totalHours %>);">
-          <!-- Time gutter -->
           <div class="kcal-gutter">
             <% for (let h = START_HOUR; h < END_HOUR; h++) { %>
             <div class="kcal-gutter-label" style="top:calc(var(--hh) * <%= h - START_HOUR %>);">
@@ -131,7 +126,6 @@
             <% } %>
           </div>
 
-          <!-- 7 day columns -->
           <div class="kcal-cols">
             <% for (let d = 0; d < 7; d++) {
               const day = new Date(weekStart);
@@ -139,16 +133,13 @@
               const isToday = day.toDateString() === new Date().toDateString();
             %>
             <div class="kcal-col <%= isToday ? 'kcal-col--today' : '' %>">
-              <!-- Hour gridlines -->
               <% for (let h = 0; h <= totalHours; h++) { %>
               <div class="kcal-gridline" style="top:calc(var(--hh) * <%= h %>);"></div>
               <% } %>
-              <!-- Half-hour gridlines -->
               <% for (let h = 0; h < totalHours; h++) { %>
               <div class="kcal-gridline kcal-gridline--half" style="top:calc(var(--hh) * <%= h %> + var(--hh) * 0.5);"></div>
               <% } %>
 
-              <!-- Events for this day -->
               <% dayEvents[d].forEach(ev => {
                 const topMult    = (ev.offsetMin / 60);
                 const heightMult = (ev.duration_min / 60);
@@ -202,7 +193,6 @@
     </div>
     <% } %>
 
-    <!-- Awaryjny kontakt e-mail -->
     <div class="emergency-contact-bar" style="margin-top:1.5rem;">
       <span class="emergency-icon">📧</span>
       <span>Problemy z systemem? Zapisz się bezpośrednio przez e-mail:</span>
@@ -212,7 +202,6 @@
   </div>
 </div>
 
-<!-- MODAL SZCZEGÓŁÓW -->
 <div id="classModal" class="cal-modal-overlay" aria-modal="true" role="dialog" style="display:none;">
   <div class="cal-modal">
     <button class="cal-modal-close" id="modalClose" aria-label="Zamknij">✕</button>
@@ -232,7 +221,6 @@
 </div>
 
 <script>
-  /* ── Modal logic ───────────────────────────────────────── */
   const modal        = document.getElementById('classModal');
   const modalClose   = document.getElementById('modalClose');
   const modalAccent  = document.getElementById('modalAccent');
@@ -324,7 +312,6 @@
     document.body.style.overflow = '';
   }
 
-  /* Bind events */
   document.querySelectorAll('.kcal-ev').forEach(el => {
     el.addEventListener('click', () => openModal(el));
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(el); } });

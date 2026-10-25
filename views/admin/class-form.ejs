@@ -95,7 +95,7 @@
           </div>
         </div>
 
-        <!-- Pola widoczne tylko dla adult_and_child -->
+        <%# Shown only for adult_and_child classes; the script at the end toggles it with the class type. %>
         <div id="childFields" <%- (!classData || classData.class_type !== 'adult_and_child') ? 'style="display: none;"' : 'style="display: block;"' %>>
           <div class="form-row">
             <div class="form-group">
@@ -111,7 +111,6 @@
           </div>
         </div>
 
-        <!-- Kolor kafelka -->
         <div class="form-row" style="align-items:center;gap:1rem;margin-top:.5rem;">
           <div class="form-group" style="flex:0 0 auto;">
             <label class="form-label">Kolor kafelka</label>
@@ -128,7 +127,6 @@
           </div>
         </div>
 
-        <!-- Lista rezerwowa -->
         <div class="form-group" style="margin-top:.5rem;">
           <label class="form-label" style="display:flex;align-items:center;gap:.75rem;cursor:pointer;">
             <input type="checkbox" name="waitingListEnabled" id="waitingListEnabled" value="1"
@@ -151,13 +149,11 @@
 </div>
 
 <script>
-  // Pokaz/ukryj pola dzieci w zależności od typu
   document.getElementById('classTypeSelect').addEventListener('change', function() {
     document.getElementById('childFields').style.display =
       this.value === 'adult_and_child' ? '' : 'none';
   });
 
-  // Podgląd koloru na żywo
   const colorInput = document.querySelector('input[name="color"]');
   const colorPreview = document.getElementById('colorPreview');
   if (colorInput && colorPreview) {
@@ -166,7 +162,6 @@
     });
   }
 
-  // Pokaż/ukryj pola listy rezerwowej
   const waitingCheckbox = document.getElementById('waitingListEnabled');
   const waitingFields   = document.getElementById('waitingListFields');
   if (waitingCheckbox && waitingFields) {
