@@ -1,13 +1,10 @@
 /**
- * migrations/runner.js — Wersjonowany system migracji bazy danych
+ * migrations/runner.js — applies the numbered SQL migrations in this directory.
  *
- * Zasada działania:
- *  1. Przy starcie tworzy tabelę `schema_migrations` jeśli nie istnieje.
- *  2. Skanuje pliki *.sql w tym katalogu, sortuje je numerycznie (001, 002, …).
- *  3. Wykonuje tylko te migracje, które NIE zostały jeszcze zapisane w tabeli.
- *  4. Każda migracja jest owinięta w transakcję — niepowodzenie zatrzymuje start.
- *
- * Dodawanie nowej migracji: utwórz plik 006_opis.sql w tym samym katalogu.
+ * Files named NNN_description.sql run in order of their three-digit prefix. Each one that is not yet recorded in
+ * `schema_migrations` runs in its own transaction and is recorded in it; an unexpected error stops the start-up.
+ * A schema change is a new file with the next number; the SQL of an applied file is never changed, as it will not
+ * run again.
  */
 
 const fs   = require('fs');
@@ -16,11 +13,10 @@ const path = require('path');
 const MIGRATIONS_DIR = __dirname;
 
 /**
- * Uruchamia wszystkie niezastosowane migracje.
- * @param {import('better-sqlite3').Database} db — już otwarta instancja bazy
+ * Applies every migration not yet recorded in `schema_migrations`.
+ * @param {import('better-sqlite3').Database} db  an open connection
  */
 function runMigrations(db) {
-  // Tabela kontrolna wersji
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,7 +25,7 @@ function runMigrations(db) {
     )
   `);
 
-  // Pliki SQL posortowane numerycznie
+  // The prefix is zero-padded, so sorting the names sorts the numbers.
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter(f => /^\d{3}_.*\.sql$/.test(f))
@@ -46,7 +42,6 @@ function runMigrations(db) {
 
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, filename), 'utf8');
 
-    // Każda migracja w jednej transakcji
     const migrate = db.transaction(() => {
       db.exec(sql);
       db.prepare('INSERT INTO schema_migrations (filename) VALUES (?)').run(filename);
@@ -59,17 +54,16 @@ function runMigrations(db) {
     } catch (err) {
       console.error(`  ✖ Migracja [BŁĄD]: ${filename}`);
       console.error(`    ${err.message}`);
-      // Ignoruj błędy "already exists" / "duplicate column" — wynikają ze starych danych
-      // w bazach, które były migrowane ręcznie przed wprowadzeniem runnera.
+      // Databases whose schema was changed by hand before this runner existed already have some of these tables and
+      // columns. Such a migration is recorded as applied instead of stopping the start-up.
       if (
         err.message.includes('already exists') ||
         err.message.includes('duplicate column')
       ) {
-        // Zapisz migrację jako wykonaną mimo błędu, żeby nie próbowała się znów
         db.prepare('INSERT OR IGNORE INTO schema_migrations (filename) VALUES (?)').run(filename);
         console.log(`    → Zignorowano (kolumna/tabela już istnieje), oznaczono jako wykonaną.`);
       } else {
-        throw err; // Nieznany błąd — przerwij start aplikacji
+        throw err;
       }
     }
   }

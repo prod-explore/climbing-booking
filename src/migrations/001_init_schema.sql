@@ -1,7 +1,4 @@
--- ============================================================
--- Migration 001 — Initial schema
--- Tworzy wszystkie tabele bazowe aplikacji
--- ============================================================
+-- Migration 001: the initial schema (users, login tokens, classes, bookings and their participants, QR visits).
 
 CREATE TABLE IF NOT EXISTS users (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +59,6 @@ CREATE TABLE IF NOT EXISTS qr_scans (
   scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indeksy dla wydajności
 CREATE INDEX IF NOT EXISTS idx_classes_start_time ON classes(start_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_class_id  ON bookings(class_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id   ON bookings(user_id);

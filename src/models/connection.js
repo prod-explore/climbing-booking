@@ -2,8 +2,7 @@
  * connection.js — the SQLite connection: opens the file (WAL mode, foreign keys), runs the migrations and the
  * start-up clean-up, and hands the connection to the models through getDb().
  *
- * Migracje obsługiwane przez wersjonowany runner: src/migrations/runner.js
- * Aby dodać zmianę schematu: utwórz kolejny plik 00N_opis.sql w src/migrations/
+ * Schema changes are numbered SQL files in src/migrations/, applied by src/migrations/runner.js.
  */
 
 const Database = require('better-sqlite3');
@@ -14,7 +13,6 @@ const { hashIp, ipHashKey, isHashedIp } = require('../utils/ipHash');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/climbing-booking.db');
 
-// Upewnij się, że katalog danych istnieje
 const dbDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
@@ -23,8 +21,8 @@ if (!fs.existsSync(dbDir)) {
 let db;
 
 /**
- * Zwraca string 'YYYY-MM-DD HH:MM:SS' odpowiadający poniedziałkowi bieżącego tygodnia o 00:00:00
- * w lokalnej strefie czasowej — używany jako granica archiwizacji zajęć.
+ * Monday 00:00:00 of the current week in local time, as 'YYYY-MM-DD HH:MM:SS': classes that start before it are
+ * archived.
  */
 function getMondayStr() {
   const now = new Date();
@@ -50,24 +48,21 @@ function hashStoredQrIps(db) {
   console.log(`  ↳ qr_scans: replaced ${rows.length} stored IP address(es) with their hash.`);
 }
 
-/**
- * Inicjalizuje połączenie z bazą i tworzy tabele jeśli nie istnieją
- */
+/** Opens the database, brings the schema up to date and archives the classes of past weeks. Call once at start. */
 function initDatabase() {
   db = new Database(DB_PATH);
 
-  // WAL mode — lepsza wydajność przy równoczesnych odczytach
+  // WAL lets readers proceed while a write is in progress. SQLite leaves foreign keys off unless asked, per connection;
+  // the schema relies on them for its ON DELETE CASCADE / SET NULL rules.
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
-  // Uruchom wersjonowany system migracji
-  // Każda zmiana schematu = nowy plik src/migrations/00N_opis.sql
   runMigrations(db);
   hashStoredQrIps(db);
 
   console.log('✅ Baza danych SQLite zainicjalizowana:', DB_PATH);
 
-  // Automatycznie zarchiwizuj zajęcia z poprzednich tygodni przy starcie
+  // app.js repeats this every 24 hours, the first time a day after launch; running it here covers every start.
   const archived = db.prepare(
     "UPDATE classes SET is_archived = 1 WHERE start_time < ? AND is_archived = 0"
   ).run(getMondayStr());
@@ -79,6 +74,7 @@ function initDatabase() {
   return db;
 }
 
+/** The open connection; throws when initDatabase() has not run. */
 function getDb() {
   if (!db) throw new Error('Baza danych nie została zainicjalizowana');
   return db;

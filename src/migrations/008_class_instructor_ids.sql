@@ -1,14 +1,12 @@
--- ============================================================
--- Migration 008: classes point at instructor accounts
+-- Migration 008: classes point at instructor accounts.
 --
--- Until now a class named its instructors in free text (instructor, child_instructor), and the instructor panel
--- matched that text against the instructor's first name with LIKE '%name%': "Jan" also saw "Janina"'s classes.
--- These columns hold the account; the text columns stay as the display name.
+-- Before this migration a class named its instructors in free text (instructor, child_instructor), and the
+-- instructor panel matched that text against the instructor's first name with LIKE '%name%': "Jan" also saw
+-- "Janina"'s classes. These columns hold the account; the text columns stay as the display name.
 --
 -- Existing rows are linked only where the match is unambiguous: the text equals (ignoring case and surrounding
 -- spaces) the first name, or the first and last name, of exactly one instructor account. Anything else keeps its
 -- text and no account until an administrator picks one in the class form.
--- ============================================================
 
 ALTER TABLE classes ADD COLUMN instructor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE classes ADD COLUMN child_instructor_id INTEGER REFERENCES users(id) ON DELETE SET NULL;

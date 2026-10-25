@@ -17,7 +17,7 @@ async function checkAndPromoteWaitingList(classId) {
     if (!classData || !classData.waiting_list_enabled) return;
 
     const first = WaitingListModel.getFirst(classId);
-    if (!first) return; // empty list
+    if (!first) return;
 
     // The places are counted inside the booking transaction: if the pool is still full, SpotsError ends it here.
     BookingModel.book(first.user_id, classId, [{

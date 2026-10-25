@@ -17,8 +17,8 @@ const UserModel = {
       'INSERT INTO users (email, first_name, last_name) VALUES (?, ?, ?)'
     ).run(email, firstName, lastName),
 
+  /** Adults (18 and over) are verified at once; a younger user stays unverified until an admin confirms consent. */
   updateProfile: (id, firstName, lastName, ageCategory, birthDate, marketingConsent) => {
-    // Użytkownicy pełnoletni (>= 18) są automatycznie zweryfikowani, młodsi potrzebują zgody admina
     const age = calculateAge(birthDate);
     const isVerified = (age !== null && age >= 18) ? 1 : 0;
     const marketingVal = marketingConsent ? 1 : 0;
@@ -39,7 +39,7 @@ const UserModel = {
     return { user: UserModel.findById(result.lastInsertRowid), isNew: true };
   },
 
-  // Zgody rodzicielskie
+  // Parental consent for 16- and 17-year-olds: the user asks, an administrator approves or rejects.
   requestConsent: (id) =>
     getDb().prepare(
       'UPDATE users SET consent_requested = 1 WHERE id = ?'

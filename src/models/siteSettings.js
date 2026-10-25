@@ -5,13 +5,13 @@
 const { getDb } = require('./connection');
 
 const SiteSettingsModel = {
-  /** Wszystkie zapisane ustawienia jako obiekt { klucz: wartość }. */
+  /** Every stored setting as { key: value }. */
   all() {
     const rows = getDb().prepare('SELECT key, value FROM site_settings').all();
     return Object.fromEntries(rows.map(r => [r.key, r.value]));
   },
 
-  /** Zapisuje komplet wartości w jednej transakcji; pusta wartość usuwa ustawienie. */
+  /** Saves all the given values in one transaction; an empty value deletes the setting. */
   saveAll(values) {
     const db = getDb();
     const upsert = db.prepare(

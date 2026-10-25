@@ -1,6 +1,6 @@
 /**
- * auth.routes.js — Endpointy autentykacji
- * Obsługuje: żądanie magic linku, weryfikację tokenu, wylogowanie
+ * auth.routes.js — passwordless sign-in: requesting a login link, confirming it, completing the profile on the first
+ * sign-in, and signing out.
  */
 
 const express = require('express');
@@ -14,9 +14,6 @@ const { magicLinkLimiter, emailRequestLimiter } = require('../middleware/securit
 const { calculateAge } = require('../utils/age');
 const { safeNext } = require('../utils/safeNext');
 
-// ============================================================
-// GET /login — Strona logowania
-// ============================================================
 router.get('/login', (req, res) => {
   const nextUrl = safeNext(req.query.next);
 
@@ -30,14 +27,11 @@ router.get('/login', (req, res) => {
   });
 });
 
-// ============================================================
-// POST /auth/request — Żądanie magic linku
-// ============================================================
 router.post('/auth/request', magicLinkLimiter, async (req, res) => {
   const { email, website } = req.body;
   const nextUrl = safeNext(req.body.next);
 
-  // Honeypot check
+  // `website` is a field hidden from people; a bot that fills it in gets the usual success page and no e-mail is sent.
   if (website) {
     console.warn(`[HONEYPOT] Bot detected from ${req.ip} in login form`);
     return res.render('user/login', {
@@ -48,7 +42,6 @@ router.post('/auth/request', magicLinkLimiter, async (req, res) => {
     });
   }
 
-  // Walidacja e-maila
   if (!email || !validator.isEmail(email)) {
     return res.render('user/login', {
       title: 'Logowanie',
@@ -60,8 +53,8 @@ router.post('/auth/request', magicLinkLimiter, async (req, res) => {
 
   const normalizedEmail = validator.normalizeEmail(email);
 
-  // Limit na adres, nie tylko na IP: bez niego ktoś z wielu adresów IP mógłby zasypać cudzą skrzynkę linkami.
-  // Liczą się żądania, nie konta, więc odpowiedź nic nie mówi o tym, czy adres jest zarejestrowany.
+  // A limit per address, not only per IP: without it someone with many IP addresses could flood another person's inbox.
+  // It counts requests, not accounts, so the answer says nothing about whether the address is registered.
   if (!emailRequestLimiter.take(normalizedEmail)) {
     return res.render('user/login', {
       title: 'Logowanie',
@@ -72,22 +65,18 @@ router.post('/auth/request', magicLinkLimiter, async (req, res) => {
   }
 
   try {
-    // Pobierz lub utwórz użytkownika
     const { user, isNew } = UserModel.getOrCreate(normalizedEmail);
 
-    // Wyczyść stare tokeny
     MagicTokenModel.cleanExpired();
 
-    // Wygeneruj magic link
     const { magicLink } = createMagicLink(user.id);
 
-    // Utrzymaj parametr next w wygenerowanym linku (jeśli jest bezpieczny)
+    // Carry a safe `next` through the e-mail, so the user lands where the sign-in started.
     const safeNextInLink = safeNext(req.body.next, null);
     const finalMagicLink = safeNextInLink
       ? `${magicLink}&next=${encodeURIComponent(safeNextInLink)}`
       : magicLink;
 
-    // Wyślij e-mail
     await sendMagicLink(normalizedEmail, finalMagicLink, isNew);
 
     return res.render('user/login', {
@@ -107,13 +96,9 @@ router.post('/auth/request', magicLinkLimiter, async (req, res) => {
   }
 });
 
-// ============================================================
-// GET /auth/verify — Strona potwierdzenia logowania
-//
-// Link z e-maila tylko pokazuje przycisk i NIE zużywa tokenu: skanery poczty i podglądy linków
-// otwierają adresy z wiadomości (GET), co zużywałoby jednorazowy token, zanim zrobi to człowiek.
-// Logowanie następuje dopiero w POST /auth/verify.
-// ============================================================
+// The link in the e-mail only shows a confirmation button and does NOT use the token up: mail scanners and link
+// previews open the addresses in a message (GET), which would spend the one-time token before the person does.
+// Signing in happens in POST /auth/verify.
 router.get('/auth/verify', (req, res) => {
   const { token } = req.query;
 
@@ -125,7 +110,7 @@ router.get('/auth/verify', (req, res) => {
     return res.redirect('/login?error=' + encodeURIComponent('Link wygasł lub jest nieprawidłowy. Wygeneruj nowy.'));
   }
 
-  // Adres zawiera token: nie zapisuj tej strony w pamięci podręcznej.
+  // The URL carries the token: keep this page out of every cache.
   res.set('Cache-Control', 'no-store');
   return res.render('user/verify', {
     title: 'Potwierdź logowanie',
@@ -134,9 +119,6 @@ router.get('/auth/verify', (req, res) => {
   });
 });
 
-// ============================================================
-// POST /auth/verify — Zużycie tokenu i zalogowanie
-// ============================================================
 router.post('/auth/verify', (req, res) => {
   const { token } = req.body;
   const nextUrl = safeNext(req.body.next);
@@ -146,7 +128,7 @@ router.post('/auth/verify', (req, res) => {
   }
 
   try {
-    // Sprawdzenie i zużycie w jednej transakcji: token zadziała dokładnie raz.
+    // Checked and spent in one transaction: the token works exactly once.
     const tokenRecord = MagicTokenModel.consume(token);
 
     if (!tokenRecord) {
@@ -156,15 +138,12 @@ router.post('/auth/verify', (req, res) => {
     const user = UserModel.findById(tokenRecord.user_id);
     UserModel.updateLastLogin(user.id);
 
-    // Ustaw cookie sesji
     setAuthCookie(res, user);
 
-    // Admin — zawsze do panelu admina
     if (user.is_admin) {
       return res.redirect('/admin');
     }
 
-    // Nowy użytkownik bez profilu — uzupełnienie danych
     if (!user.first_name || !user.last_name) {
       return res.redirect('/profile/complete?next=' + encodeURIComponent(nextUrl));
     }
@@ -176,9 +155,6 @@ router.post('/auth/verify', (req, res) => {
   }
 });
 
-// ============================================================
-// GET /profile/complete — Uzupełnienie profilu (pierwsze logowanie)
-// ============================================================
 router.get('/profile/complete', requireAuth, (req, res) => {
   res.render('user/complete-profile', {
     title: 'Uzupełnij profil',
@@ -187,9 +163,6 @@ router.get('/profile/complete', requireAuth, (req, res) => {
   });
 });
 
-// ============================================================
-// POST /profile/complete — Zapis danych profilu
-// ============================================================
 router.post('/profile/complete', requireAuth, (req, res) => {
   const { firstName, lastName, birthDate, marketing_accepted } = req.body;
   const nextUrl = safeNext(req.body.next);
@@ -219,7 +192,6 @@ router.post('/profile/complete', requireAuth, (req, res) => {
       error: 'Nieprawidłowa data urodzenia.'
     });
   }
-  // Data nie może być w przyszłości ani dawniej niż 120 lat temu
   const now120ago = new Date();
   now120ago.setFullYear(now120ago.getFullYear() - 120);
   if (birthDateObj > new Date() || birthDateObj < now120ago) {
@@ -240,7 +212,8 @@ router.post('/profile/complete', requireAuth, (req, res) => {
     });
   }
 
-  // Od 16 lat w górę — zawsze kategoria 'adult' (pula miejsc dla dorosłych)
+  // Everyone who can hold an account (16 and over) takes a place from the adult pool; younger children are booked
+  // as extra participants by a parent.
   const ageCategory = 'adult';
 
   UserModel.updateProfile(
@@ -252,16 +225,12 @@ router.post('/profile/complete', requireAuth, (req, res) => {
     marketing_accepted === 'on'
   );
 
-  // Odśwież dane w cookie
   const updatedUser = UserModel.findById(req.user.id);
   setAuthCookie(res, updatedUser);
 
   return res.redirect(nextUrl);
 });
 
-// ============================================================
-// POST /auth/logout — Wylogowanie
-// ============================================================
 router.post('/auth/logout', (req, res) => {
   res.clearCookie('authToken');
   res.redirect('/');

@@ -1,7 +1,5 @@
--- ============================================================
--- Migration 002 — Weryfikacja użytkowników i zgody rodzicielskie
--- Dodaje kategorie wiekowe, weryfikację konta i zgody RODO
--- ============================================================
+-- Migration 002: age category and birth date, account verification with a parental-consent request,
+-- and the marketing consent.
 
 ALTER TABLE users ADD COLUMN age_category      TEXT    DEFAULT NULL;
 ALTER TABLE users ADD COLUMN is_verified       INTEGER DEFAULT 0;

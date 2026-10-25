@@ -1,8 +1,9 @@
 /**
- * admin.routes.js — Panel administratora
- * Admin loguje się magic linkiem na adres z ADMIN_EMAILS
+ * admin.routes.js — the admin panel: sign-in by login link (only for addresses in ADMIN_EMAILS), classes and their
+ * participants, the weekly calendar and cloning, the archive, parental consents and the site settings.
  *
- * v2 — Podwójne limity, zarządzanie zgodami
+ * Loading this module creates or updates the accounts listed in ADMIN_EMAILS and INSTRUCTORS, so it has to be
+ * required after the database is initialised.
  */
 
 const express = require('express');
@@ -22,7 +23,7 @@ const { attendanceList, bookingsWithParticipants } = require('../services/attend
 
 const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL);
 
-// Upewnij się, że konto admina istnieje i ma flagę is_admin=1
+/** Returns the account for an ADMIN_EMAILS address, creating it or granting it admin rights as needed. */
 function ensureAdminAccount(rawEmail) {
   const email = validator.normalizeEmail(rawEmail) || rawEmail.toLowerCase();
   let adminUser = UserModel.findByEmail(email);
@@ -37,13 +38,12 @@ function ensureAdminAccount(rawEmail) {
   return adminUser;
 }
 
-// Inicjalizuj wszystkie konta administratorów z listy
 if (!ADMIN_EMAILS.length && process.env.NODE_ENV !== 'test') {
   console.warn('ADMIN_EMAILS is empty: nobody can sign in to the admin panel.');
 }
 ADMIN_EMAILS.forEach(ensureAdminAccount);
 
-// Inicjalizuj konta instruktorów
+/** Creates or updates an INSTRUCTORS account: the instructor flag, and the first name the configuration gives it. */
 function ensureInstructorAccount(rawEmail, firstName) {
   const email = validator.normalizeEmail(rawEmail) || rawEmail.toLowerCase();
   let instructorUser = UserModel.findByEmail(email);
@@ -59,27 +59,21 @@ function ensureInstructorAccount(rawEmail, firstName) {
   ClassModel.syncInstructorName(instructorUser.id, firstName);
 }
 
-// Konta instruktorów pochodzą z konfiguracji (INSTRUCTORS="adres:Imię, adres:Imię"), nie z kodu.
+// Instructor accounts come from the configuration (INSTRUCTORS="address:First name, ..."), not from the code.
 parseInstructors(process.env.INSTRUCTORS).forEach(({ email, firstName }) => ensureInstructorAccount(email, firstName));
 
-// ============================================================
-// GET /admin/login
-// ============================================================
 router.get('/admin/login', (req, res) => {
   if (req.user?.is_admin) return res.redirect('/admin');
   res.render('admin/login', { title: 'Panel Admina — Logowanie', error: null, success: null });
 });
 
-// ============================================================
-// POST /admin/login — Wyślij magic link na adres admina
-// ============================================================
 router.post('/admin/login', adminLoginLimiter, async (req, res) => {
   const { email, website } = req.body;
   const render = (extra) => res.render('admin/login', { title: 'Panel Admina — Logowanie', error: null, success: null, ...extra });
   // The same answer whether or not the address belongs to an administrator: the form does not tell who the admins are.
   const SENT = 'Jeśli to adres administratora, wysłaliśmy na niego link logowania. Sprawdź skrzynkę!';
 
-  // Honeypot check
+  // `website` is a field hidden from people (see auth.routes.js).
   if (website) {
     console.warn(`[HONEYPOT] Bot detected from ${req.ip} in admin login form`);
     return render({ success: SENT });
@@ -108,9 +102,6 @@ router.post('/admin/login', adminLoginLimiter, async (req, res) => {
   }
 });
 
-// ============================================================
-// GET /admin — Dashboard
-// ============================================================
 router.get('/admin', requireAdmin, (req, res) => {
   const classes = ClassModel.getAll();
   const totalClasses = classes.length;
@@ -130,10 +121,8 @@ router.get('/admin', requireAdmin, (req, res) => {
   });
 });
 
-// ============================================================
-// GET/POST /admin/settings — dane prowadzącego i obiektu (administrator danych, NIP, adres obiektu)
-// Wyświetlane w stopce, polityce prywatności, regulaminie i sekcji z mapą.
-// ============================================================
+// The operator and venue details (data controller, NIP, venue address) that the footer, the privacy policy, the terms
+// and the map section print. See utils/siteSettings.js.
 function renderSettings(res, user, values, extra = {}) {
   res.render('admin/settings', {
     title: 'Ustawienia',
@@ -163,10 +152,6 @@ router.post('/admin/settings', requireAdmin, (req, res) => {
   SiteSettingsModel.saveAll(values);
   return res.redirect('/admin/settings?success=' + encodeURIComponent('Zapisano ustawienia.'));
 });
-
-// ============================================================
-// GET /admin/calendar — Kalendarz tygodniowy (widok admina)
-// ============================================================
 
 router.get('/admin/calendar', requireAdmin, (req, res) => {
   const weekOffset = parseWeekOffset(req.query.week);
@@ -238,17 +223,11 @@ function submittedClass(body, base = {}) {
   };
 }
 
-// ============================================================
-// GET /admin/classes/new
-// ============================================================
 router.get('/admin/classes/new', requireAdmin, (req, res) => {
   const instructors = UserModel.getInstructors();
   res.render('admin/class-form', { title: 'Nowe zajęcia', classData: null, user: req.user, error: null, instructors });
 });
 
-// ============================================================
-// POST /admin/classes — Utwórz
-// ============================================================
 router.post('/admin/classes', requireAdmin, (req, res) => {
   const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructorId, childInstructorId, color, waitingListEnabled } = req.body;
 
@@ -257,11 +236,9 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
     title: 'Nowe zajęcia', classData: submittedClass(req.body), user: req.user, error: msg, instructors
   });
 
-  // Nazwa
   const nameTrimmed = String(name || '').trim().slice(0, 120);
   if (!nameTrimmed) return renderErr('Wymagana: nazwa zajęć.');
 
-  // Daty
   const startDate = new Date(startTime);
   const endDate   = new Date(endTime);
   if (!startTime || isNaN(startDate.getTime())) return renderErr('Nieprawidłowa data/godzina startu.');
@@ -270,7 +247,6 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
   const durationMin = endTime ? Math.round((endDate - startDate) / 60000) : 90;
   if (durationMin < 15 || durationMin > 480)     return renderErr('Czas trwania musi wynosić 15 min – 8 godzin.');
 
-  // Liczba miejsc
   const maxSpotsVal = parseInt(maxSpots, 10);
   if (!Number.isInteger(maxSpotsVal) || maxSpotsVal < 1 || maxSpotsVal > 200)
     return renderErr('Maks. uczestników: wartość od 1 do 200.');
@@ -280,10 +256,9 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
   if (ct === 'adult_and_child' && (maxChildVal < 1 || maxChildVal > 200))
     return renderErr('Maks. dzieci: wartość od 1 do 200.');
 
-  // Kolor
   const colorVal = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#6366f1';
 
-  // Instruktorzy
+  // A new class has no old free-text instructor to keep, so 'legacy' means nobody.
   const mainInstructor = resolveInstructor(instructorId === 'legacy' ? '' : instructorId, '', instructors);
   const childInstructor = ct === 'adult_and_child'
     ? resolveInstructor(childInstructorId === 'legacy' ? '' : childInstructorId, '', instructors)
@@ -311,9 +286,6 @@ router.post('/admin/classes', requireAdmin, (req, res) => {
   return res.redirect('/admin?success=Zajęcia+dodane+pomyślnie');
 });
 
-// ============================================================
-// GET /admin/classes/:id/edit
-// ============================================================
 router.get('/admin/classes/:id/edit', requireAdmin, (req, res) => {
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/admin?error=Nie+znaleziono+zajęć');
@@ -321,9 +293,7 @@ router.get('/admin/classes/:id/edit', requireAdmin, (req, res) => {
   res.render('admin/class-form', { title: `Edytuj: ${classData.name}`, classData, user: req.user, error: null, instructors });
 });
 
-// ============================================================
-// POST /admin/classes/:id — Aktualizuj
-// ============================================================
+// Fields left empty keep the class's current name, start and duration.
 router.post('/admin/classes/:id', requireAdmin, (req, res) => {
   const { name, description, startTime, endTime, classType, maxSpots, maxChildSpots, instructorId, childInstructorId, color, waitingListEnabled } = req.body;
   const classId = parseInt(req.params.id, 10);
@@ -336,10 +306,8 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
     title: `Edytuj: ${classData.name}`, classData: submittedClass(req.body, classData), user: req.user, error: msg, instructors
   });
 
-  // Nazwa
   const nameTrimmed = String(name || '').trim().slice(0, 120) || classData.name;
 
-  // Daty
   const effectiveStart = startTime || classData.start_time;
   const startDate = new Date(effectiveStart);
   if (isNaN(startDate.getTime())) return renderErr('Nieprawidłowa data/godzina startu.');
@@ -353,7 +321,6 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
     if (newDurationMin < 15 || newDurationMin > 480) return renderErr('Czas trwania musi wynosić 15 min – 8 godzin.');
   }
 
-  // Liczba miejsc
   const maxSpotsRaw = parseInt(maxSpots, 10);
   const maxSpotsVal = (Number.isInteger(maxSpotsRaw) && maxSpotsRaw >= 1 && maxSpotsRaw <= 200)
     ? maxSpotsRaw : classData.max_spots;
@@ -368,10 +335,8 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
   if (ct === 'adult_and_child' && (maxChildVal < 1 || maxChildVal > 200))
     return renderErr('Maks. dzieci: wartość od 1 do 200.');
 
-  // Kolor
   const colorVal = /^#[0-9a-fA-F]{6}$/.test(color) ? color : (classData.color || '#6366f1');
 
-  // Instruktorzy
   const mainInstructor = resolveInstructor(instructorId, classData.instructor, instructors);
   const childInstructor = ct === 'adult_and_child'
     ? resolveInstructor(childInstructorId, classData.child_instructor, instructors)
@@ -399,9 +364,6 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
   return res.redirect('/admin?success=Zajęcia+zaktualizowane');
 });
 
-// ============================================================
-// POST /admin/classes/:id/cancel
-// ============================================================
 router.post('/admin/classes/:id/cancel', requireAdmin, (req, res) => {
   const classId = parseInt(req.params.id, 10);
   if (!Number.isInteger(classId) || classId < 1) return res.redirect('/admin?error=Nieprawidłowe+ID');
@@ -409,9 +371,6 @@ router.post('/admin/classes/:id/cancel', requireAdmin, (req, res) => {
   res.redirect('/admin?success=Zajęcia+odwołane');
 });
 
-// ============================================================
-// POST /admin/classes/:id/uncancel
-// ============================================================
 router.post('/admin/classes/:id/uncancel', requireAdmin, (req, res) => {
   const classId = parseInt(req.params.id, 10);
   if (!Number.isInteger(classId) || classId < 1) return res.redirect('/admin?error=Nieprawidłowe+ID');
@@ -419,9 +378,6 @@ router.post('/admin/classes/:id/uncancel', requireAdmin, (req, res) => {
   res.redirect('/admin?success=Zajęcia+przywrócone+z+odwołanych');
 });
 
-// ============================================================
-// POST /admin/classes/:id/archive
-// ============================================================
 router.post('/admin/classes/:id/archive', requireAdmin, (req, res) => {
   const classId = parseInt(req.params.id, 10);
   if (!Number.isInteger(classId) || classId < 1) return res.redirect('/admin?error=Nieprawidłowe+ID');
@@ -429,9 +385,6 @@ router.post('/admin/classes/:id/archive', requireAdmin, (req, res) => {
   res.redirect('/admin?success=Zajęcia+zarchiwizowane');
 });
 
-// ============================================================
-// GET /admin/archive
-// ============================================================
 router.get('/admin/archive', requireAdmin, (req, res) => {
   const classes = ClassModel.getArchived();
   res.render('admin/archive', {
@@ -443,17 +396,11 @@ router.get('/admin/archive', requireAdmin, (req, res) => {
   });
 });
 
-// ============================================================
-// POST /admin/classes/:id/restore
-// ============================================================
 router.post('/admin/classes/:id/restore', requireAdmin, (req, res) => {
   ClassModel.restore(req.params.id);
   res.redirect('/admin/archive?success=Zajęcia+przywrócone');
 });
 
-// ============================================================
-// GET /admin/classes/:id/attendance
-// ============================================================
 router.get('/admin/classes/:id/attendance', requireAdmin, (req, res) => {
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/admin?error=Nie+znaleziono+zajęć');
@@ -470,9 +417,7 @@ router.get('/admin/classes/:id/attendance', requireAdmin, (req, res) => {
   });
 });
 
-// ============================================================
-// GET /admin/consents — Zarządzanie zgodami
-// ============================================================
+// Accounts waiting for parental-consent confirmation, and the minors already confirmed.
 router.get('/admin/consents', requireAdmin, (req, res) => {
   const pendingUsers = UserModel.getPendingConsents().map(u => ({
     ...u,
@@ -500,9 +445,6 @@ router.get('/admin/consents', requireAdmin, (req, res) => {
   });
 });
 
-// ============================================================
-// POST /admin/consents/:id/approve — Zatwierdź zgodę
-// ============================================================
 router.post('/admin/consents/:id/approve', requireAdmin, (req, res) => {
   const targetUser = UserModel.findById(req.params.id);
   if (!targetUser) return res.redirect('/admin/consents?error=Nie+znaleziono+użytkownika');
@@ -511,9 +453,6 @@ router.post('/admin/consents/:id/approve', requireAdmin, (req, res) => {
   res.redirect('/admin/consents?success=Zgoda+zatwierdzona+dla+' + encodeURIComponent(targetUser.first_name + ' ' + targetUser.last_name));
 });
 
-// ============================================================
-// POST /admin/consents/:id/reject — Odrzuć zgodę
-// ============================================================
 router.post('/admin/consents/:id/reject', requireAdmin, (req, res) => {
   const targetUser = UserModel.findById(req.params.id);
   if (!targetUser) return res.redirect('/admin/consents?error=Nie+znaleziono+użytkownika');
@@ -522,9 +461,7 @@ router.post('/admin/consents/:id/reject', requireAdmin, (req, res) => {
   res.redirect('/admin/consents?success=Prośba+odrzucona');
 });
 
-// ============================================================
-// POST /admin/classes/:classId/participants/:participantId/remove — Usuń uczestnika
-// ============================================================
+// Removes one participant (and the booking, when it was the last one) and tells the person who booked by e-mail.
 router.post('/admin/classes/:classId/participants/:participantId/remove', requireAdmin, async (req, res) => {
   const { classId, participantId } = req.params;
   const classData = ClassModel.getById(classId);
@@ -539,16 +476,13 @@ router.post('/admin/classes/:classId/participants/:participantId/remove', requir
   const bookerEmail = participant.booker_email;
   const bookingId = participant.booking_id;
 
-  // Usuń uczestnika
   BookingModel.removeParticipant(participantId);
 
-  // Jeśli rezerwacja jest pusta — usuń ją
   const remaining = BookingModel.countParticipantsByBooking(bookingId);
   if (remaining === 0) {
     BookingModel.deleteBooking(bookingId);
   }
 
-  // Wyślij e-mail do osoby zapisującej
   try {
     const date = new Date(classData.start_time);
     const classDateStr = date.toLocaleDateString('pl-PL', {
@@ -557,27 +491,26 @@ router.post('/admin/classes/:classId/participants/:participantId/remove', requir
     });
     await sendParticipantRemovedEmail(bookerEmail, participantName, classData.name, classDateStr);
   } catch (emailErr) {
+    // The participant is already removed: a failed notification is logged, not reported as a failed removal.
     console.error('Błąd wysyłki e-mail o wypisaniu:', emailErr);
-    // Nie blokujemy usunięcia, nawet jeśli e-mail nie poszedł
   }
 
-  // Sprawdź i przenieś pierwszą osobę z listy rezerwowej (async, nie blokuje)
+  // Not awaited: see the same call in user.routes.js.
   checkAndPromoteWaitingList(classId);
 
   return res.redirect(`/admin/classes/${classId}/attendance?success=Usunięto+uczestnika:+${encodeURIComponent(participantName)}`);
 });
 
-// ============================================================
-// POST /admin/clone-week — Klonuj zajęcia bieżącego tygodnia na następny
-// ============================================================
+// Copies this week's classes (not the cancelled or archived ones) `weeksAhead` weeks forward, without bookings.
+// A copy whose name and start time already exist is skipped, so cloning the same week twice adds nothing.
 router.post('/admin/clone-week', requireAdmin, (req, res) => {
   let weeksAhead = parseInt(req.body.weeksAhead, 10);
   if (!Number.isInteger(weeksAhead) || weeksAhead < 1 || weeksAhead > 52) weeksAhead = 1;
   const daysToAdd = weeksAhead * 7;
 
-  // Oblicz granice bieżącego tygodnia (poniedziałek 00:00 — niedziela 23:59)
+  // This week as [Monday 00:00, next Monday 00:00) in local time, formatted like the stored start_time values.
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0=niedziela, 1=poniedziałek...
+  const dayOfWeek = now.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
   const weekStart = new Date(now);
@@ -585,10 +518,10 @@ router.post('/admin/clone-week', requireAdmin, (req, res) => {
   weekStart.setHours(0, 0, 0, 0);
 
   const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 7); // Następny poniedziałek 00:00
+  weekEnd.setDate(weekStart.getDate() + 7);
 
   const tzOffsetStart = weekStart.getTimezoneOffset() * 60000;
-  const weekStartStr = (new Date(weekStart.getTime() - tzOffsetStart)).toISOString().slice(0, 16); // YYYY-MM-DDThh:mm
+  const weekStartStr = (new Date(weekStart.getTime() - tzOffsetStart)).toISOString().slice(0, 16);
 
   const tzOffsetEnd = weekEnd.getTimezoneOffset() * 60000;
   const weekEndStr = (new Date(weekEnd.getTime() - tzOffsetEnd)).toISOString().slice(0, 16);
@@ -601,17 +534,16 @@ router.post('/admin/clone-week', requireAdmin, (req, res) => {
 
   let clonedCount = 0;
   for (const c of thisWeekClasses) {
-    // Parse start_time and add N days in local time
+    // Adding days in local time keeps the hour across a DST change.
     const originalStart = new Date(c.start_time);
     originalStart.setDate(originalStart.getDate() + daysToAdd);
     
-    // Format back to YYYY-MM-DDThh:mm in local time
+    // Back to local 'YYYY-MM-DDTHH:mm', the format the class form stores.
     const tzOff = originalStart.getTimezoneOffset() * 60000;
     const newStartLocal = (new Date(originalStart.getTime() - tzOff)).toISOString().slice(0, 16);
 
-    // Sprawdź duplikat
     if (ClassModel.existsByNameAndTime(c.name, newStartLocal)) {
-      continue; // Pomiń — już istnieje
+      continue;
     }
 
     ClassModel.create({
@@ -642,9 +574,6 @@ router.post('/admin/clone-week', requireAdmin, (req, res) => {
   return res.redirect(`/admin?success=Sklonowano+${clonedCount}+zajęć+${encodeURIComponent(weekText)}`);
 });
 
-// ============================================================
-// GET /admin/classes/:id/waiting-list — Lista rezerwowa dla admina
-// ============================================================
 router.get('/admin/classes/:id/waiting-list', requireAdmin, (req, res) => {
   const classData = ClassModel.getById(req.params.id);
   if (!classData) return res.redirect('/admin?error=Nie+znaleziono+zajęć');

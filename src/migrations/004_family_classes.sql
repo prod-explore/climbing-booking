@@ -1,8 +1,5 @@
--- ============================================================
--- Migration 004 — Zajęcia rodzinne (dzieci + dorośli)
--- Rozdzielenie pul miejsc na dorosłych i dzieci,
--- dodanie drugiego instruktora (animacje dla dzieci)
--- ============================================================
+-- Migration 004: family classes (adult_and_child) with separate adult and child pools of places, a second
+-- instructor for the children, and each participant's age category and age.
 
 ALTER TABLE classes ADD COLUMN class_type       TEXT    DEFAULT 'adult_only';
 ALTER TABLE classes ADD COLUMN max_child_spots  INTEGER DEFAULT 0;
