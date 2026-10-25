@@ -4,12 +4,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/prod-explore/climbing-booking:${CLIMBING_BOOKING_IMAGE_TAG:-latest}
     container_name: climbing-booking-app
     restart: unless-stopped
 
     env_file: .env
     # Set here so a development .env cannot switch them: the container always runs in production mode,
-    # on the port the healthcheck and the mapping below expect, with the database on the volume.
+    # on the port the healthcheck expects, with the database on the volume.
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -18,10 +19,9 @@ services:
     volumes:
       - climbing_booking_data:/app/data
 
-    # Published on the loopback interface only: put a TLS-terminating reverse proxy in front of it
-    # (or attach the proxy to climbing-booking-network and drop this mapping).
-    ports:
-      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+    # No port is published on the host. The reverse proxy joins `climbing-booking-network` and reaches the app at
+    # climbing-booking-app:3000 (see the README). To open it on localhost while developing, copy
+    # docker-compose.override.example.yml to docker-compose.override.yml.
 
     networks:
       - climbing-booking-network
