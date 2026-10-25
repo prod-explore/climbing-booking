@@ -1,22 +1,17 @@
 /**
- * bookings.test.js — Testy integracyjne modeli bazy danych
- *
- * Testujemy na bazie in-memory (:memory:) — izolowane, bez dotykania produkcji.
- * Każdy test suite dostaje świeżą bazę.
- *
- * Uruchomienie: npm test
+ * bookings.test.js — the migration runner and the schema's booking rules (separate pools, one booking per user and
+ * class, cascading deletes), with plain SQL on a fresh in-memory database per test. The models' own capacity logic is
+ * tested in capacity.test.js.
  */
 
 'use strict';
 
 const Database = require('better-sqlite3');
 
-// Podmień DB_PATH przed importem modeli — używamy :memory:
 process.env.DB_PATH = ':memory:';
 
 const { runMigrations } = require('../migrations/runner');
 
-// ── Helper: tworzy świeżą bazę in-memory z pełnym schematem ──────────────────
 function createTestDb() {
   const db = new Database(':memory:');
   db.pragma('journal_mode = WAL');
@@ -25,7 +20,7 @@ function createTestDb() {
   return db;
 }
 
-// ── Helper: uproszczone modele operujące na podanej bazie ────────────────────
+/** Minimal SQL helpers on the given database, independent of src/models. */
 function makeModels(db) {
   const createUser = (email) =>
     db.prepare('INSERT INTO users (email) VALUES (?)').run(email);
@@ -70,25 +65,23 @@ function makeModels(db) {
   return { createUser, createClass, countAdults, countChildren, bookWithParticipants };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 describe('Migration runner', () => {
-  test('tworzy tabelę schema_migrations', () => {
+  test('creates the schema_migrations table', () => {
     const db = createTestDb();
     const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'").get();
     expect(row).toBeDefined();
   });
 
-  test('rejestruje wszystkie pliki migracji', () => {
+  test('records the migration files it applied', () => {
     const db = createTestDb();
     const applied = db.prepare('SELECT filename FROM schema_migrations ORDER BY filename').all();
     expect(applied.length).toBeGreaterThanOrEqual(5);
     expect(applied[0].filename).toBe('001_init_schema.sql');
   });
 
-  test('powtórne uruchomienie runnera nie duplikuje migracji', () => {
+  test('a second run records no migration twice', () => {
     const db = createTestDb();
-    runMigrations(db); // drugi raz
+    runMigrations(db);
     const count = db.prepare('SELECT COUNT(*) as cnt FROM schema_migrations').get().cnt;
     const applied = db.prepare('SELECT filename FROM schema_migrations').all();
     const unique = new Set(applied.map(r => r.filename)).size;
@@ -96,9 +89,7 @@ describe('Migration runner', () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('Rezerwacje — podstawowe operacje', () => {
+describe('bookings in the schema', () => {
   let db, m;
 
   beforeEach(() => {
@@ -106,7 +97,7 @@ describe('Rezerwacje — podstawowe operacje', () => {
     m = makeModels(db);
   });
 
-  test('tworzy rezerwację z uczestnikami', () => {
+  test('stores a booking with its participants', () => {
     const userId = m.createUser('test@example.com').lastInsertRowid;
     const classId = m.createClass({ name: 'Wspinaczka', startTime: '2027-01-01 10:00:00', maxSpots: 10 }).lastInsertRowid;
 
@@ -121,7 +112,7 @@ describe('Rezerwacje — podstawowe operacje', () => {
     expect(participants[0].first_name).toBe('Jan');
   });
 
-  test('zlicza dorosłych i dzieci oddzielnie', () => {
+  test('counts adults and children separately', () => {
     const userId = m.createUser('rodzic@example.com').lastInsertRowid;
     const classId = m.createClass({
       name: 'Rodzinne', startTime: '2027-01-01 10:00:00',
@@ -137,7 +128,7 @@ describe('Rezerwacje — podstawowe operacje', () => {
     expect(m.countChildren(classId)).toBe(1);
   });
 
-  test('blokuje duplikaty rezerwacji (UNIQUE constraint)', () => {
+  test('refuses a second booking of the same class by the same user (UNIQUE)', () => {
     const userId = m.createUser('dup@example.com').lastInsertRowid;
     const classId = m.createClass({ name: 'Yoga', startTime: '2027-02-01 09:00:00', maxSpots: 5 }).lastInsertRowid;
 
@@ -152,7 +143,7 @@ describe('Rezerwacje — podstawowe operacje', () => {
     }).toThrow();
   });
 
-  test('usunięcie rezerwacji kaskadowo usuwa uczestników', () => {
+  test('deleting a booking deletes its participants', () => {
     const userId = m.createUser('del@example.com').lastInsertRowid;
     const classId = m.createClass({ name: 'Bouldering', startTime: '2027-03-01 12:00:00', maxSpots: 8 }).lastInsertRowid;
 
