@@ -1,8 +1,5 @@
-# ============================================================
-# Fantastyczne Wspinanie — production image
-# Multi-stage: the build toolchain is only needed if better-sqlite3 has no
-# prebuilt binary for the platform, and never reaches the final image.
-# ============================================================
+# Production image of the app. Multi-stage: the build toolchain is only needed when better-sqlite3 has no prebuilt
+# binary for the platform, and it never reaches the final image.
 
 FROM node:22-alpine AS deps
 RUN apk add --no-cache python3 make g++
@@ -20,7 +17,7 @@ COPY src/    ./src/
 COPY views/  ./views/
 COPY public/ ./public/
 
-# Data directory for the SQLite database (mounted as a volume)
+# The SQLite database lives here on a volume; the app runs as `node`, which must be able to write it.
 RUN mkdir -p /app/data && chown -R node:node /app/data
 
 USER node
