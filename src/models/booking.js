@@ -76,6 +76,7 @@ const BookingModel = {
    * Books the participants and checks the free places in the same write transaction.
    * BEGIN IMMEDIATE takes the write lock before the places are counted, so the limit does not depend on the caller
    * having no `await` between its own check and the insert (nor on there being a single process).
+   * A booking replaces the user's place on the class's waiting list, if they had one.
    * Throws SpotsError when a pool lacks places.
    */
   book: (userId, classId, participants) => {
@@ -97,7 +98,9 @@ const BookingModel = {
       if (adultsNeeded > adultSpotsLeft) throw new SpotsError('NO_ADULT_SPOTS', adultSpotsLeft, childSpotsLeft);
       if (childrenNeeded > childSpotsLeft) throw new SpotsError('NO_CHILD_SPOTS', adultSpotsLeft, childSpotsLeft);
 
-      return BookingModel.createWithParticipants(userId, classId, participants);
+      const bookingId = BookingModel.createWithParticipants(userId, classId, participants);
+      getDb().prepare('DELETE FROM waiting_list WHERE class_id = ? AND user_id = ?').run(classId, userId);
+      return bookingId;
     });
     return run.immediate();
   },
