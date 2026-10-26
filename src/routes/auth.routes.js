@@ -13,6 +13,7 @@ const { createMagicLink, setAuthCookie, requireAuth } = require('../middleware/a
 const { magicLinkLimiter, emailRequestLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
 const { safeNext } = require('../utils/safeNext');
+const { isAdminEmail } = require('../utils/accounts');
 
 router.get('/login', (req, res) => {
   const nextUrl = safeNext(req.query.next);
@@ -140,7 +141,7 @@ router.post('/auth/verify', (req, res) => {
 
     setAuthCookie(res, user);
 
-    if (user.is_admin) {
+    if (isAdminEmail(user.email)) {
       return res.redirect('/admin');
     }
 

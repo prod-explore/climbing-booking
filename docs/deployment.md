@@ -29,7 +29,7 @@ the variables with comments. `docker-compose.yml` always sets `NODE_ENV=producti
 | `JWT_SECRET` | none | Required. Signs the session cookies. At least 32 characters, not the placeholder, not a few repeated characters: `openssl rand -hex 32`. A new value signs everybody out. |
 | `IP_HASH_SECRET` | derived from `JWT_SECRET` | Key for the HMAC of QR visitors' IP addresses; checked like `JWT_SECRET`. Changing it, or `JWT_SECRET` while it is unset, makes new hashes differ from stored ones. |
 | `ALLOW_WEAK_SECRETS` | off | `true` turns the secret check into a warning. Local work only. |
-| `ADMIN_EMAILS` | none | Comma-separated. These accounts get admin rights at start-up, and only they are sent an admin login link. |
+| `ADMIN_EMAILS` | none | Comma-separated. Admin rights follow this list on every request: an address removed from it (and the app restarted) loses them at once, open sessions included. Only these addresses are sent an admin login link. |
 | `INSTRUCTORS` | none | `address:First name`, comma-separated. Created or updated at start-up. |
 | `RESEND_API_KEY` | none | Without it in production the app starts, but no e-mail can be sent, login links included. Outside production e-mails are printed to the console instead. |
 | `EMAIL_FROM` | `Fantastyczne Wspinanie <noreply@<host of APP_URL>>` | Its domain must be verified in Resend. |
