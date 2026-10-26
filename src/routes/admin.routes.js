@@ -22,14 +22,14 @@ const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('..
 const { attendanceList, bookingsWithParticipants } = require('../services/attendance');
 
 /**
- * Returns the account for an ADMIN_EMAILS address, creating it as needed. The account is verified and counts as an
- * adult; its admin rights come from the list itself (utils/accounts.js), checked on every request.
+ * Returns the account for an ADMIN_EMAILS address, creating it as needed. The account is verified; its admin rights
+ * come from the list itself (utils/accounts.js), checked on every request.
  */
 function ensureAdminAccount(rawEmail) {
   const email = normalizedEmail(rawEmail);
   UserModel.getOrCreate(email);
   getDb().prepare(
-    "UPDATE users SET is_verified = 1, age_category = COALESCE(age_category, 'adult'), first_name = COALESCE(first_name, 'Admin'), last_name = COALESCE(last_name, 'Zajęcia') WHERE email = ?"
+    "UPDATE users SET is_verified = 1, first_name = COALESCE(first_name, 'Admin'), last_name = COALESCE(last_name, 'Zajęcia') WHERE email = ?"
   ).run(email);
   return UserModel.findByEmail(email);
 }
