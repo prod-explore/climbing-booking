@@ -2,7 +2,8 @@
  * migrations/runner.js — applies the numbered SQL migrations in this directory.
  *
  * Files named NNN_description.sql run in order of their three-digit prefix. Each one that is not yet recorded in
- * `schema_migrations` runs in its own transaction and is recorded in it; an unexpected error stops the start-up.
+ * `schema_migrations` runs in its own transaction and is recorded in it. A file that fails is rolled back, stays
+ * unrecorded, and its error stops the start-up.
  * A schema change is a new file with the next number; the SQL of an applied file is never changed, as it will not
  * run again.
  */
@@ -15,6 +16,7 @@ const MIGRATIONS_DIR = __dirname;
 /**
  * Applies every migration not yet recorded in `schema_migrations`.
  * @param {import('better-sqlite3').Database} db  an open connection
+ * @throws {Error} naming the file, when a migration fails (its cause is the SQLite error)
  */
 function runMigrations(db) {
   db.exec(`
@@ -49,23 +51,13 @@ function runMigrations(db) {
 
     try {
       migrate();
-      console.log(`  ↳ Migracja [OK]: ${filename}`);
-      count++;
     } catch (err) {
-      console.error(`  ✖ Migracja [BŁĄD]: ${filename}`);
-      console.error(`    ${err.message}`);
-      // Databases whose schema was changed by hand before this runner existed already have some of these tables and
-      // columns. Such a migration is recorded as applied instead of stopping the start-up.
-      if (
-        err.message.includes('already exists') ||
-        err.message.includes('duplicate column')
-      ) {
-        db.prepare('INSERT OR IGNORE INTO schema_migrations (filename) VALUES (?)').run(filename);
-        console.log(`    → Zignorowano (kolumna/tabela już istnieje), oznaczono jako wykonaną.`);
-      } else {
-        throw err;
-      }
+      // The transaction has rolled back, so nothing of this file is applied and nothing is recorded. The start-up
+      // stops here: a later migration may depend on this one, and a half-known schema must not serve requests.
+      throw new Error(`Migration ${filename} failed: ${err.message}`, { cause: err });
     }
+    console.log(`  ↳ Migracja [OK]: ${filename}`);
+    count++;
   }
 
   if (count > 0) {

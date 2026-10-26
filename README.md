@@ -72,7 +72,8 @@ flowchart LR
   `public/js/` and inline blocks in some views) only adds modals, tabs and notices. Forms post to the server, which
   redirects with the outcome.
 - **One SQLite file, opened synchronously.** `better-sqlite3` in WAL mode, foreign keys on. Numbered SQL files in
-  `src/migrations/` are applied at start-up, each in its own transaction.
+  `src/migrations/` are applied at start-up, each in its own transaction; a file that fails is rolled back, left
+  unrecorded, and stops the start-up with its error.
 - **Configuration in the environment, venue details in the database.** Admin and instructor accounts come from
   `ADMIN_EMAILS` and `INSTRUCTORS` and are created at start-up. Who the data controller is and where the classes take
   place are edited at `/admin/settings`; until then the public pages show visible placeholders.
