@@ -113,8 +113,9 @@ within `DEPLOY_WAIT_SECONDS`, it prints the last 20 log lines, retags the image 
 `rollback` and starts that. For a manual rollback, pass the `sha-` tag of an earlier build.
 
 A rollback changes the image, not the database. Migrations run when the new image starts, so a rolled-back image may
-meet a schema with newer columns. The migrations so far add tables, columns and indexes (008 also fills its new
-columns) and drop nothing.
+meet a schema with newer columns. The migrations add tables, columns and indexes (008 also fills its new columns),
+except 009, which drops `participants.child_age`: an image built before it fails on every booking, so roll back past
+009 only together with a database backup taken before it.
 
 To build the image on the server instead of pulling it: `docker compose up -d --build`.
 

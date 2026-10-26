@@ -99,8 +99,7 @@
                       <span class="participant-chip">
                         <%= p.first_name %> <%= p.last_name %>
                         <% if (p.is_main) { %> ★<% } %>
-                        <% const age = p.child_age || p.age; %>
-                        <% if (age != null) { %><span class="participant-chip-age">(<%= age %> lat)</span><% } %>
+                        <% if (p.age != null) { %><span class="participant-chip-age">(<%= p.age %> lat)</span><% } %>
                         <% if (!isPast && hoursLeft >= 2 && b.participants.length > 1) { %>
                           <form action="/cancel/<%= b.class_id %>/participants/<%= p.id %>" method="POST" class="participant-remove-form" data-confirm="Czy na pewno chcesz wypisać tę osobę?">
                             <button type="submit" class="participant-remove-btn" title="Wypisz uczestnika">✕</button>

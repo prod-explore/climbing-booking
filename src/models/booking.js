@@ -45,7 +45,7 @@ const BookingModel = {
       const bookingId = booking.lastInsertRowid;
 
       const insertParticipant = getDb().prepare(
-        'INSERT INTO participants (booking_id, first_name, last_name, age_category, is_main, child_age, age) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO participants (booking_id, first_name, last_name, age_category, is_main, age) VALUES (?, ?, ?, ?, ?, ?)'
       );
 
       for (let i = 0; i < participants.length; i++) {
@@ -63,8 +63,7 @@ const BookingModel = {
           participants[i].lastName,
           participants[i].ageCategory || 'adult',
           participants[i].isMain ? 1 : 0,
-          ageVal, // child_age
-          ageVal  // age
+          ageVal
         );
       }
 
