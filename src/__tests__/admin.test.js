@@ -19,8 +19,8 @@ jest.mock('../services/emailService', () => ({
 
 const request = require('supertest');
 const app = require('../app');
-const { UserModel, MagicTokenModel, ClassModel } = require('../models/database');
-const { sendMagicLink } = require('../services/emailService');
+const { UserModel, MagicTokenModel, ClassModel, BookingModel, WaitingListModel } = require('../models/database');
+const { sendMagicLink, sendWaitingListPromotedEmail } = require('../services/emailService');
 
 beforeAll(() => {
   for (const [email, first] of [['anna@example.com', 'Anna'], ['ola@example.com', 'Ola']]) {
@@ -97,6 +97,28 @@ describe('POST /admin/classes', () => {
     expect(res.status).toBe(302);
     const saved = ClassModel.getAll().find(c => c.name === 'Długi opis');
     expect(saved.description).toBe(description);
+  });
+});
+
+describe('raising the limit of a class with a waiting list', () => {
+  test('books the waiting people who now fit, in list order, at once', async () => {
+    const admin = await loginAsAdmin();
+    await admin.post('/admin/classes').type('form').send({ ...CLASS_FORM, name: 'Pełne', maxSpots: '1', waitingListEnabled: 'on' });
+    const classId = ClassModel.getAll().find(c => c.name === 'Pełne').id;
+    const [booked, first, second, third] = ['b', 'w1', 'w2', 'w3'].map(n =>
+      UserModel.create(`${n}.limit@example.com`, n, 'Test').lastInsertRowid);
+    BookingModel.book(booked, classId, [{ firstName: 'b', lastName: 'Test', ageCategory: 'adult', isMain: true, age: 30 }]);
+    [first, second, third].forEach(id => WaitingListModel.add(id, classId));
+    sendWaitingListPromotedEmail.mockClear();
+
+    await admin.post(`/admin/classes/${classId}`).type('form')
+      .send({ ...CLASS_FORM, name: 'Pełne', maxSpots: '3', waitingListEnabled: 'on' });
+
+    expect(BookingModel.getSpotCounts(classId).adult_taken).toBe(3);
+    expect(BookingModel.findByUserAndClass(first, classId)).toBeDefined();
+    expect(BookingModel.findByUserAndClass(second, classId)).toBeDefined();
+    expect(WaitingListModel.getByClass(classId).map(e => e.user_id)).toEqual([third]);
+    expect(sendWaitingListPromotedEmail.mock.calls.map(c => c[0])).toEqual(['w1.limit@example.com', 'w2.limit@example.com']);
   });
 });
 

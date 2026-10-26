@@ -55,7 +55,8 @@ booking, and the other way round.
 - If a place frees up between showing the page and joining, the person is sent to the normal booking form instead.
 - When a place frees up, the first person on the list (by joining time) is booked as one adult, inside the same
   capacity transaction as any other booking, removed from the list and sent an e-mail. If the class is still full,
-  nothing changes. Each cancellation or removal moves at most one person, even when it frees several places.
+  nothing changes. A cancellation, a removal or a higher limit set by an administrator books as many people from the
+  list as now fit, in list order, at once.
 - Booking a class, by the list or directly, takes the person off that class's list. An entry whose person already
   has a booking of the class is dropped when the list moves, and the next person is promoted instead.
 - A person can leave the list at any time from their dashboard.
