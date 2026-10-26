@@ -87,6 +87,20 @@ describe('Migration runner', () => {
     const unique = new Set(applied.map(r => r.filename)).size;
     expect(unique).toBe(count);
   });
+
+  test('a failed migration is rolled back, not recorded, and stops the run with its error', () => {
+    // A database changed by hand: one of the five columns of migration 002 is already there.
+    const db = new Database(':memory:');
+    db.exec(require('fs').readFileSync(require('path').join(__dirname, '../migrations/001_init_schema.sql'), 'utf8'));
+    db.exec('ALTER TABLE users ADD COLUMN age_category TEXT');
+
+    expect(() => runMigrations(db)).toThrow(/002_user_verification\.sql.*duplicate column/);
+
+    const applied = db.prepare('SELECT filename FROM schema_migrations').all().map(r => r.filename);
+    expect(applied).toEqual(['001_init_schema.sql']);
+    const columns = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
+    expect(columns).not.toContain('is_verified');
+  });
 });
 
 describe('bookings in the schema', () => {
