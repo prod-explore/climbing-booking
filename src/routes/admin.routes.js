@@ -346,6 +346,10 @@ router.post('/admin/classes/:id', requireAdmin, (req, res) => {
     maxWaitingSpots: classData.max_waiting_spots || 15
   });
 
+  // A higher limit (or a waiting list switched on with free places) books the waiting people who now fit. Not
+  // awaited: the bookings are made before the service's first await, only the e-mails outlive the response.
+  checkAndPromoteWaitingList(classId);
+
   return res.redirect('/admin?success=Zajęcia+zaktualizowane');
 });
 

@@ -1,8 +1,10 @@
 /**
- * waitingList.js — promotes the first person on a class's waiting list when a place frees up.
+ * waitingList.js — books people from a class's waiting list when places free up.
  *
- * Called after a booking is cancelled or a participant is removed. It is background work: a failure is logged and
- * never reaches the request that triggered it.
+ * Called after a booking is cancelled, a participant is removed, or an administrator edits a class (a higher limit).
+ * Every person who now fits is booked before the first await, so the bookings are in place by the time the calling
+ * request answers; only the e-mails outlive it. It is background work: a failure is logged and never reaches the
+ * request that triggered it.
  */
 
 'use strict';
@@ -16,17 +18,24 @@ async function checkAndPromoteWaitingList(classId) {
     const classData = ClassModel.getById(classId);
     if (!classData || !classData.waiting_list_enabled) return;
 
-    // The places are counted inside the booking transaction: a full pool promotes nobody.
-    const first = WaitingListModel.promoteNext(classId);
-    if (!first) return;
+    // Each promotion counts the places inside its own booking transaction; the first one that does not fit ends it.
+    const promoted = [];
+    for (let entry = WaitingListModel.promoteNext(classId); entry; entry = WaitingListModel.promoteNext(classId)) {
+      promoted.push(entry);
+    }
+    if (!promoted.length) return;
 
     const classDate = new Date(classData.start_time).toLocaleDateString('pl-PL', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
     const dashboardLink = `${appUrl()}/dashboard`;
-    await sendWaitingListPromotedEmail(first.email, first.first_name, classData.name, classDate, dashboardLink);
-    console.log(`✅ Przeniesiono ${first.email} z listy rezerwowej na główną (klasa ${classId})`);
+    const sent = await Promise.allSettled(promoted.map(entry =>
+      sendWaitingListPromotedEmail(entry.email, entry.first_name, classData.name, classDate, dashboardLink)));
+    sent.forEach((result, i) => {
+      if (result.status === 'rejected') console.error(`Waiting-list e-mail to ${promoted[i].email} failed:`, result.reason);
+      else console.log(`✅ Przeniesiono ${promoted[i].email} z listy rezerwowej na główną (klasa ${classId})`);
+    });
   } catch (err) {
     console.error('Błąd checkAndPromoteWaitingList:', err);
   }
