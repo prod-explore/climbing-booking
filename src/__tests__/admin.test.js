@@ -9,7 +9,6 @@ process.env.DB_PATH = ':memory:';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret-test-secret-test-secret-1234';
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_EMAILS = 'admin@example.com';
-process.env.INSTRUCTORS = 'anna@example.com:Anna,ola@example.com:Ola';
 
 jest.mock('../services/emailService', () => ({
   initEmailService: jest.fn().mockResolvedValue(undefined),
@@ -22,6 +21,12 @@ const request = require('supertest');
 const app = require('../app');
 const { UserModel, MagicTokenModel, ClassModel } = require('../models/database');
 const { sendMagicLink } = require('../services/emailService');
+
+beforeAll(() => {
+  for (const [email, first] of [['anna@example.com', 'Anna'], ['ola@example.com', 'Ola']]) {
+    UserModel.grantInstructor(UserModel.create(email, first, 'Instruktor').lastInsertRowid);
+  }
+});
 
 let seq = 0;
 async function loginAsAdmin() {

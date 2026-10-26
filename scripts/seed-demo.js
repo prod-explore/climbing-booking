@@ -45,7 +45,7 @@ function seedDemo() {
     return { created: 0, reason: 'the database already has classes' };
   }
 
-  // Instructor accounts, as INSTRUCTORS would create them; classes are linked to them by id.
+  // Instructor accounts, as /admin/instructors would create them; classes are linked to them by id.
   const instructorIds = {};
   for (const [email, firstName] of SAMPLE_INSTRUCTORS) {
     const { user } = UserModel.getOrCreate(email);

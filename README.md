@@ -53,7 +53,7 @@ built from it.
 | Visitor | See this week's classes on the home page and the coming weeks in the calendar, with the free places of each pool. |
 | Participant | Sign in by e-mail link, complete a profile once, book themselves plus up to four people, cancel a whole booking or one person, join and leave a waiting list. |
 | Instructor | See the classes linked to their account and the participant lists of those classes. Read-only. |
-| Administrator | Create, edit, cancel, archive and restore classes; copy this week's classes forward; see attendance and waiting lists; remove a participant (the person who booked gets an e-mail); approve parental consent for 16- and 17-year-olds; set the operator and venue details shown on the public pages. |
+| Administrator | Create, edit, cancel, archive and restore classes; copy this week's classes forward; see attendance and waiting lists; remove a participant (the person who booked gets an e-mail); approve parental consent for 16- and 17-year-olds; add and remove instructors; set the operator and venue details shown on the public pages. |
 
 The rules behind this (age limits, the two pools, when cancelling is allowed, how the waiting list moves) are in
 [docs/booking-rules.md](docs/booking-rules.md).
@@ -74,9 +74,10 @@ flowchart LR
 - **One SQLite file, opened synchronously.** `better-sqlite3` in WAL mode, foreign keys on. Numbered SQL files in
   `src/migrations/` are applied at start-up, each in its own transaction; a file that fails is rolled back, left
   unrecorded, and stops the start-up with its error.
-- **Configuration in the environment, venue details in the database.** Admin and instructor accounts come from
-  `ADMIN_EMAILS` and `INSTRUCTORS` and are created at start-up. Who the data controller is and where the classes take
-  place are edited at `/admin/settings`; until then the public pages show visible placeholders.
+- **Administrators in the environment, everything else in the database.** The administrators are the addresses in
+  `ADMIN_EMAILS`. Instructors are accounts with the instructor role, added and removed at `/admin/instructors`. Who the
+  data controller is and where the classes take place are edited at `/admin/settings`; until then the public pages
+  show visible placeholders.
 - **No job queue.** A timer in the process archives the classes of past weeks once a day (and at every start).
   Waiting-list promotion runs in the request that freed the place; its e-mail is not awaited, and a failure is
   logged without reaching the user who cancelled.

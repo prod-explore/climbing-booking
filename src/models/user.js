@@ -75,6 +75,30 @@ const UserModel = {
     })();
   },
 
+  /**
+   * Gives the account the instructor role. A name it lacks is filled from `firstName`/`lastName`; like the
+   * administrators, an instructor is verified and counts as an adult.
+   */
+  grantInstructor: (id, { firstName = null, lastName = null } = {}) =>
+    getDb().prepare(`
+      UPDATE users SET is_instructor = 1, is_verified = 1, age_category = COALESCE(age_category, 'adult'),
+        first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?)
+      WHERE id = ?
+    `).run(firstName || null, lastName || null, id),
+
+  /**
+   * Takes the instructor role away and unlinks the account from its classes in the same transaction. The classes keep
+   * the name as text, which the class form offers to keep or replace (as for classes from before migration 008).
+   */
+  revokeInstructor: (id) => {
+    const db = getDb();
+    db.transaction(() => {
+      db.prepare('UPDATE users SET is_instructor = 0 WHERE id = ?').run(id);
+      db.prepare('UPDATE classes SET instructor_id = NULL WHERE instructor_id = ?').run(id);
+      db.prepare('UPDATE classes SET child_instructor_id = NULL WHERE child_instructor_id = ?').run(id);
+    })();
+  },
+
   getInstructors: () =>
     getDb().prepare(
       'SELECT * FROM users WHERE is_instructor = 1 ORDER BY first_name ASC'

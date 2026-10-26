@@ -13,8 +13,9 @@ What the app allows and refuses, as the code implements it. The routes are in `s
 - From 18 the account is verified at once. At 16 or 17 it stays unverified, and cannot book, until the person asks
   for verification on their dashboard and an administrator approves it at `/admin/consents` (the parental-consent
   check happens outside the app). A rejected request can be sent again.
-- Every account holder counts as an adult for places. Administrator and instructor accounts come from the
-  configuration (`ADMIN_EMAILS`, `INSTRUCTORS`) and are verified when they are created.
+- Every account holder counts as an adult for places. Administrators are the addresses in `ADMIN_EMAILS`; their rights
+  are checked against that list on every request. Administrator accounts, and accounts given the instructor role, are
+  verified.
 
 ## Classes
 
@@ -69,8 +70,13 @@ booking, and the other way round.
 
 ## Instructors
 
-- `INSTRUCTORS="anna@example.com:Anna, jan@example.com:Jan"` creates the accounts at start-up and keeps their first
-  names up to date; a renamed instructor is shown under the new name on the classes linked to the account.
+- An administrator adds an instructor at `/admin/instructors` by e-mail address. An address without an account gets
+  one, with the first and last name typed in the form; an existing account keeps its name. The first name is what the
+  classes show.
+- Removing the role takes the instructor panel away at once and unlinks the account from its classes; each class keeps
+  the instructor's name as text until an administrator picks another instructor in the class form.
+- The `users.is_instructor` flag is the only record of the role. The `INSTRUCTORS` variable of earlier versions is no
+  longer read (the app warns when it is still set); the instructors it created keep the role.
 - The instructor panel (`/instructor`) lists the classes where the account is the main or the children's instructor,
   and shows the participant list of those classes only. Administrators can open it too. Nothing there can be changed.
 

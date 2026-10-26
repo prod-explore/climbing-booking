@@ -30,7 +30,6 @@ the variables with comments. `docker-compose.yml` always sets `NODE_ENV=producti
 | `IP_HASH_SECRET` | derived from `JWT_SECRET` | Key for the HMAC of QR visitors' IP addresses; checked like `JWT_SECRET`. Changing it, or `JWT_SECRET` while it is unset, makes new hashes differ from stored ones. |
 | `ALLOW_WEAK_SECRETS` | off | `true` turns the secret check into a warning. Local work only. |
 | `ADMIN_EMAILS` | none | Comma-separated. Admin rights follow this list on every request: an address removed from it (and the app restarted) loses them at once, open sessions included. Only these addresses are sent an admin login link. |
-| `INSTRUCTORS` | none | `address:First name`, comma-separated. Created or updated at start-up. |
 | `RESEND_API_KEY` | none | Without it in production the app starts, but no e-mail can be sent, login links included. Outside production e-mails are printed to the console instead. |
 | `EMAIL_FROM` | `Fantastyczne Wspinanie <noreply@<host of APP_URL>>` | Its domain must be verified in Resend. |
 | `CONTACT_EMAIL` | `contact@example.com` | Shown in the footer, the privacy policy and the e-mails. |
@@ -93,13 +92,13 @@ location / {
 
 1. Clone the repository on the server; it provides `docker-compose.yml`, `.env.example` and `scripts/deploy.sh`.
 2. `cp .env.example .env` and fill it in: `APP_URL`, a generated `JWT_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` on a
-   domain verified in Resend, `CONTACT_EMAIL`, `ADMIN_EMAILS` and `INSTRUCTORS`. Leave `NODE_ENV` as it is; Compose
-   overrides it.
+   domain verified in Resend, `CONTACT_EMAIL` and `ADMIN_EMAILS`. Leave `NODE_ENV` as it is; Compose overrides it.
 3. Run `scripts/deploy.sh`.
 4. Sign in at `/admin/login` and fill in `/admin/settings`: the data controller, its seat and NIP, and the venue.
    Until then the public pages print placeholders such as `[nazwa administratora danych]` and the admin dashboard
    shows a reminder. The venue address also turns on the map on the home page.
-5. Add classes, or add one week and copy it forward with *Clone week*.
+5. Add the instructors at `/admin/instructors`, then the classes, or one week of classes copied forward with
+   *Clone week*.
 
 ## Deploying and rolling back
 

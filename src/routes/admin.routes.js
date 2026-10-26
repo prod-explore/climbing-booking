@@ -1,15 +1,15 @@
 /**
  * admin.routes.js — the admin panel: sign-in by login link (only for addresses in ADMIN_EMAILS), classes and their
- * participants, the weekly calendar and cloning, the archive, parental consents and the site settings.
+ * participants, the weekly calendar and cloning, the archive, parental consents, instructors and the site settings.
  *
- * Loading this module creates or updates the accounts listed in ADMIN_EMAILS and INSTRUCTORS, so it has to be
- * required after the database is initialised.
+ * Loading this module creates the accounts listed in ADMIN_EMAILS, so it has to be required after the database is
+ * initialised.
  */
 
 const express = require('express');
 const router = express.Router();
 const validator = require('validator');
-const { parseInstructors, normalizedEmail, adminEmails, isAdminEmail } = require('../utils/accounts');
+const { normalizedEmail, adminEmails, isAdminEmail } = require('../utils/accounts');
 
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, SiteSettingsModel, getDb } = require('../models/database');
 const { requireAdmin, createMagicLink } = require('../middleware/auth');
@@ -42,24 +42,11 @@ startupAdmins.forEach(ensureAdminAccount);
 // users.is_admin mirrors the list for queries and for anyone reading the database; it grants nothing by itself.
 UserModel.syncAdminFlags(startupAdmins);
 
-/** Creates or updates an INSTRUCTORS account: the instructor flag, and the first name the configuration gives it. */
-function ensureInstructorAccount(rawEmail, firstName) {
-  const email = validator.normalizeEmail(rawEmail) || rawEmail.toLowerCase();
-  let instructorUser = UserModel.findByEmail(email);
-  if (!instructorUser) {
-    UserModel.create(email, firstName, 'Instruktor');
-    instructorUser = UserModel.findByEmail(email);
-  }
-  if (!instructorUser.is_instructor || instructorUser.first_name !== firstName) {
-    getDb().prepare('UPDATE users SET is_instructor = 1, is_verified = 1, age_category = ?, first_name = ? WHERE id = ?')
-      .run('adult', firstName, instructorUser.id);
-  }
-  // A renamed instructor (INSTRUCTORS changed) is shown under the new name on the classes linked to the account.
-  ClassModel.syncInstructorName(instructorUser.id, firstName);
+// Instructors are managed at /admin/instructors and stored only as users.is_instructor. INSTRUCTORS used to create
+// them at every start, which would bring back anyone removed in the panel, so it is no longer read.
+if (process.env.INSTRUCTORS) {
+  console.warn('INSTRUCTORS is no longer read: manage instructors at /admin/instructors. Existing instructors are kept.');
 }
-
-// Instructor accounts come from the configuration (INSTRUCTORS="address:First name, ..."), not from the code.
-parseInstructors(process.env.INSTRUCTORS).forEach(({ email, firstName }) => ensureInstructorAccount(email, firstName));
 
 router.get('/admin/login', (req, res) => {
   if (req.user?.is_admin) return res.redirect('/admin');
@@ -413,6 +400,63 @@ router.get('/admin/classes/:id/attendance', requireAdmin, (req, res) => {
     success: req.query.success || null,
     error: req.query.error || null
   });
+});
+
+// Instructors: any account can be given the role by e-mail, and losing it unlinks the account from its classes.
+function renderInstructors(res, user, extra = {}) {
+  res.render('admin/instructors', {
+    title: 'Instruktorzy',
+    instructors: UserModel.getInstructors(),
+    user,
+    form: {},
+    success: null,
+    error: null,
+    ...extra
+  });
+}
+
+router.get('/admin/instructors', requireAdmin, (req, res) => {
+  renderInstructors(res, req.user, {
+    success: typeof req.query.success === 'string' ? req.query.success : null,
+    error: typeof req.query.error === 'string' ? req.query.error : null
+  });
+});
+
+router.post('/admin/instructors', requireAdmin, (req, res) => {
+  const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
+  const form = {
+    email: text(req.body.email, 254),
+    firstName: text(req.body.firstName, 50),
+    lastName: text(req.body.lastName, 50)
+  };
+  const refuse = error => {
+    res.status(400);
+    renderInstructors(res, req.user, { form, error });
+  };
+
+  if (!validator.isEmail(form.email)) return refuse('Podaj prawidłowy adres e-mail.');
+  const email = normalizedEmail(form.email);
+
+  const existing = UserModel.findByEmail(email);
+  if (existing?.is_instructor) {
+    return res.redirect('/admin/instructors?success=' + encodeURIComponent(`${email} jest już instruktorem.`));
+  }
+  // The first name is what classes show for their instructor, so an account without a name gets one here.
+  if (!(existing?.first_name && existing?.last_name) && !(form.firstName && form.lastName)) {
+    return refuse('Podaj imię i nazwisko: to konto nie ma ich jeszcze w profilu.');
+  }
+
+  const id = existing ? existing.id : UserModel.create(email, form.firstName, form.lastName).lastInsertRowid;
+  UserModel.grantInstructor(id, form);
+  return res.redirect('/admin/instructors?success=' + encodeURIComponent(`Dodano instruktora: ${email}`));
+});
+
+router.post('/admin/instructors/:id/remove', requireAdmin, (req, res) => {
+  const target = UserModel.findById(req.params.id);
+  if (!target?.is_instructor) return res.redirect('/admin/instructors?error=' + encodeURIComponent('Nie znaleziono instruktora.'));
+
+  UserModel.revokeInstructor(target.id);
+  return res.redirect('/admin/instructors?success=' + encodeURIComponent(`Odebrano rolę instruktora: ${target.email}`));
 });
 
 // Accounts waiting for parental-consent confirmation, and the minors already confirmed.

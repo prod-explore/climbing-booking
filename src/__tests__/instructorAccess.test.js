@@ -10,7 +10,6 @@ process.env.DB_PATH = ':memory:';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret-test-secret-test-secret-1234';
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_EMAILS = 'admin@example.com';
-process.env.INSTRUCTORS = 'jan@example.com:Jan,janina@example.com:Janina';
 
 jest.mock('../services/emailService', () => ({
   initEmailService: jest.fn().mockResolvedValue(undefined),
@@ -36,6 +35,9 @@ async function loginAs(email) {
 let janinaClassId;
 
 beforeAll(() => {
+  for (const [email, first] of [['jan@example.com', 'Jan'], ['janina@example.com', 'Janina']]) {
+    UserModel.grantInstructor(UserModel.create(email, first, 'Instruktor').lastInsertRowid);
+  }
   const janina = UserModel.findByEmail('janina@example.com');
   janinaClassId = ClassModel.create({
     name: 'Zajęcia Janiny', description: '', startTime: '2030-05-06T18:00', durationMin: 90,
