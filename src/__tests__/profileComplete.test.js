@@ -81,8 +81,13 @@ test('the profile form completes the profile', async () => {
   const { agent, res } = await loginAs('participant@example.com');
   expect(sentToProfile(res)).toBe(true);
 
+  const before = Date.now();
   await agent.post('/profile/complete').type('form')
     .send({ firstName: 'Ala', lastName: 'Kot', birthDate: '1990-05-05', terms_accepted: 'on' });
+
+  const acceptedAt = UserModel.findByEmail('participant@example.com').terms_accepted_at;
+  expect(acceptedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  expect(Date.parse(acceptedAt)).toBeGreaterThanOrEqual(before - 1000);
 
   expect((await agent.get(`/book/${classId}`)).status).toBe(200);
 });

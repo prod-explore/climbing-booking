@@ -18,7 +18,8 @@ const UserModel = {
     ).run(email, firstName, lastName),
 
   /**
-   * Saves the profile form, which is only submitted with the terms accepted, so it also records the acceptance.
+   * Saves the profile form, which is only submitted with the terms accepted, so it also records when they were
+   * accepted (terms_accepted_at, UTC ISO text).
    * Adults (18 and over) are verified at once; a younger user stays unverified until an admin confirms consent.
    */
   updateProfile: (id, firstName, lastName, birthDate, marketingConsent) => {
@@ -26,8 +27,8 @@ const UserModel = {
     const isVerified = (age !== null && age >= 18) ? 1 : 0;
     const marketingVal = marketingConsent ? 1 : 0;
     getDb().prepare(
-      'UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, is_verified = ?, marketing_consent = ?, terms_accepted = 1 WHERE id = ?'
-    ).run(firstName, lastName, birthDate, isVerified, marketingVal, id);
+      'UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, is_verified = ?, marketing_consent = ?, terms_accepted_at = ? WHERE id = ?'
+    ).run(firstName, lastName, birthDate, isVerified, marketingVal, new Date().toISOString(), id);
   },
 
   updateLastLogin: (id) =>
