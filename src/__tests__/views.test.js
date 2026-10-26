@@ -93,3 +93,26 @@ describe('participant dashboard', () => {
     expect(fs.existsSync(path.join(__dirname, '../../public/js/dashboard.js'))).toBe(true);
   });
 });
+
+describe('stylesheet', () => {
+  // Built from a prefix and a value in the template, so they never appear whole in the sources.
+  const COMPOSED = ['badge-cat--adults', 'badge-cat--kids', 'badge-cat--mixed', 'toast--success', 'toast--error'];
+
+  test('every class it styles is used by a view, a client script or the server', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../public/css/main.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\{[^{}]*\}/g, '{}');
+    const classes = new Set([...css.matchAll(/\.(-?[A-Za-z_][\w-]*)/g)].map(m => m[1]));
+
+    const sourceFiles = [
+      ...viewFiles(),
+      ...fs.readdirSync(path.join(__dirname, '../../public/js')).map(f => path.join(__dirname, '../../public/js', f)),
+      ...fs.readdirSync(path.join(__dirname, '../routes')).map(f => path.join(__dirname, '../routes', f))
+    ];
+    const sources = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
+    const used = name => COMPOSED.includes(name) ||
+      new RegExp(`(?<![\\w-])${name.replace(/[-]/g, '\\-')}(?![\\w-])`).test(sources);
+
+    expect([...classes].filter(name => !used(name))).toEqual([]);
+  });
+});
