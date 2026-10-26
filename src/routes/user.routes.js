@@ -257,18 +257,16 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
 
   const participants = [];
 
-  let mainAgeCategory = req.user.age_category;
-  if (classData.class_type === 'adult_only') {
-    mainAgeCategory = 'adult';
-    if (mainUserAge !== null && mainUserAge < 16) {
-      return renderBookError('Osoby poniżej 16 roku życia nie mogą brać udziału w tych zajęciach.');
-    }
+  if (classData.class_type === 'adult_only' && mainUserAge !== null && mainUserAge < 16) {
+    return renderBookError('Osoby poniżej 16 roku życia nie mogą brać udziału w tych zajęciach.');
   }
 
+  // Accounts are held from 16 up and 16- and 17-year-olds take adult places, so the account holder is always an adult
+  // participant: a child is never booked without the adult who brings them.
   participants.push({
     firstName: req.user.first_name,
     lastName: req.user.last_name,
-    ageCategory: mainAgeCategory,
+    ageCategory: 'adult',
     isMain: true,
     age: mainUserAge
   });
@@ -348,17 +346,6 @@ router.post('/book/:classId', requireAuth, requireProfile, apiLimiter, async (re
       adultSpotsLeft, childSpotsLeft,
       user: req.user,
       error: `Niewystarczająca liczba miejsc dla dzieci. Dostępne: ${childSpotsLeft}, potrzebujesz: ${childrenNeeded}.`,
-      notOpen: false, full: false
-    });
-  }
-
-  // A child is never booked without the adult who brings them: an adult booking children takes a place too.
-  if (childrenNeeded > 0 && adultsNeeded === 0 && req.user.age_category === 'adult') {
-    return res.render('user/book', {
-      title: `Zapis: ${classData.name}`, classData,
-      adultSpotsLeft, childSpotsLeft,
-      user: req.user,
-      error: 'Aby zapisać dziecko, musisz również zapisać siebie jako dorosłego uczestnika (opiekuna).',
       notOpen: false, full: false
     });
   }
