@@ -28,7 +28,9 @@ const { createWindowLimiter } = require('../middleware/security');
 let seq = 0;
 function makeUser({ withProfile = true } = {}) {
   const email = `auth${++seq}@example.com`;
-  const id = UserModel.create(email, withProfile ? 'Jan' : null, withProfile ? 'Kowalski' : null).lastInsertRowid;
+  const id = UserModel.create(email, null, null).lastInsertRowid;
+  // As the profile form saves it: names, birth date and the accepted terms.
+  if (withProfile) UserModel.updateProfile(id, 'Jan', 'Kowalski', '1990-01-01', false);
   return { id, email };
 }
 
