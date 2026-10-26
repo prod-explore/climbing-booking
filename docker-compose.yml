@@ -11,10 +11,12 @@ services:
     env_file: .env
     # Set here so a development .env cannot switch them: the container always runs in production mode,
     # on the port the healthcheck expects, with the database on the volume.
+    # TZ is the school's time zone, which class times are read in (see .env.example); TZ in .env overrides the default.
     environment:
       NODE_ENV: production
       PORT: "3000"
       DB_PATH: /app/data/climbing-booking.db
+      TZ: ${TZ:-Europe/Warsaw}
 
     volumes:
       - climbing_booking_data:/app/data

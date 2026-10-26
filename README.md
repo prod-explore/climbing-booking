@@ -156,8 +156,8 @@ steps are in [docs/deployment.md](docs/deployment.md).
 - **One instance on one SQLite file.** There is no replication and no built-in backup;
   [docs/deployment.md](docs/deployment.md#data-and-backups) shows how to copy the database while the app runs.
 - **Class times have no time zone.** They are stored as local wall-clock time (`2026-10-26T17:00`) and compared with
-  the server clock in the process's time zone. Neither the Dockerfile nor `docker-compose.yml` sets `TZ`, so the
-  container runs in UTC unless `.env` sets it. [[Q4: Does production set TZ (for example TZ=Europe/Warsaw) in .env?]]
+  the server clock in the process's time zone, `TZ`. `docker-compose.yml` passes `TZ` from `.env` and defaults it to
+  `Europe/Warsaw`; the start-up log line prints the zone in effect. [[Q4: Does production set TZ (for example TZ=Europe/Warsaw) in .env?]]
 - **The waiting list is for one adult at a time.** Only the account holder can join it, without extra people.
   Cancelling a whole class does not e-mail its participants.
 - **Polish only.** The interface, the e-mails and the legal pages (privacy policy, terms, cookies) are written in
