@@ -94,9 +94,10 @@ message. If `GET /auth/verify` used the token, a scanner would spend it before t
 asks for confirmation; `POST /auth/verify` checks and spends the token in one transaction. Tokens are 32 random bytes,
 valid for 15 minutes, single use.
 
-**Sessions are a signed cookie, not server-side state.** The cookie holds an HS256 JWT valid for 90 days. Every
-request loads the account from the database, so a changed role or profile applies at once, but a session cannot be
-ended from the server before it expires (see [Known limitations](#known-limitations)).
+**Sessions are a signed cookie, not server-side state.** The cookie holds an HS256 JWT valid for 90 days and no role.
+Every request loads the account from the database and takes the administrator role from `ADMIN_EMAILS`, so a changed
+role or profile applies at once, also in an open session. A session itself cannot be ended from the server before it
+expires (see [Known limitations](#known-limitations)).
 
 **Instructors are linked to classes by account id, not by name.** Migration 008 replaced a name match in which
 "Jan" also saw "Janina"'s participants. It links existing classes only where exactly one instructor account matches

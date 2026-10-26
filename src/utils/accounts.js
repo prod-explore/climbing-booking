@@ -1,8 +1,7 @@
 /**
- * accounts.js — parsing of the account lists that come from the environment.
+ * accounts.js — the account lists that come from the environment, and the administrator role they grant.
  *
- * Personal e-mail addresses are configuration, not source code: they are read from
- * ADMIN_EMAILS and INSTRUCTORS and never committed.
+ * Personal e-mail addresses are configuration, not source code: they are read from ADMIN_EMAILS and never committed.
  */
 
 const validator = require('validator');
@@ -33,4 +32,27 @@ function parseInstructors(raw) {
   return out;
 }
 
-module.exports = { parseEmailList, parseInstructors };
+/** The same address in the form the accounts store it (validator.normalizeEmail, as at sign-in). */
+function normalizedEmail(email) {
+  return validator.normalizeEmail(String(email || '')) || String(email || '').toLowerCase();
+}
+
+/** The administrator addresses from ADMIN_EMAILS (ADMIN_EMAIL, singular, is the older name), normalised. */
+function adminEmails(env = process.env) {
+  return parseEmailList(env.ADMIN_EMAILS || env.ADMIN_EMAIL).map(normalizedEmail);
+}
+
+/**
+ * Whether the address is an administrator's. Read from the environment on every call, so the rights follow the list
+ * the process runs with and never a flag stored in the database.
+ */
+function isAdminEmail(email, env = process.env) {
+  return Boolean(email) && adminEmails(env).includes(normalizedEmail(email));
+}
+
+/** The account with `is_admin` set from ADMIN_EMAILS. */
+function withRoles(user) {
+  return user && { ...user, is_admin: isAdminEmail(user.email) ? 1 : 0 };
+}
+
+module.exports = { parseEmailList, parseInstructors, normalizedEmail, adminEmails, isAdminEmail, withRoles };

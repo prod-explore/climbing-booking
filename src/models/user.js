@@ -65,6 +65,16 @@ const UserModel = {
       'SELECT * FROM users WHERE is_admin = 0 ORDER BY created_at DESC'
     ).all(),
 
+  /** Sets users.is_admin to 1 for exactly the given (normalised) addresses and to 0 for everyone else. */
+  syncAdminFlags: (emails) => {
+    const db = getDb();
+    db.transaction(() => {
+      db.prepare('UPDATE users SET is_admin = 0 WHERE is_admin <> 0').run();
+      const grant = db.prepare('UPDATE users SET is_admin = 1 WHERE email = ?');
+      emails.forEach(email => grant.run(email));
+    })();
+  },
+
   getInstructors: () =>
     getDb().prepare(
       'SELECT * FROM users WHERE is_instructor = 1 ORDER BY first_name ASC'

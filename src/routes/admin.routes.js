@@ -9,7 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const validator = require('validator');
-const { parseEmailList, parseInstructors } = require('../utils/accounts');
+const { parseInstructors, normalizedEmail, adminEmails, isAdminEmail } = require('../utils/accounts');
 
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, SiteSettingsModel, getDb } = require('../models/database');
 const { requireAdmin, createMagicLink } = require('../middleware/auth');
@@ -21,27 +21,26 @@ const siteSettings = require('../utils/siteSettings');
 const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('../utils/calendarWeek');
 const { attendanceList, bookingsWithParticipants } = require('../services/attendance');
 
-const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL);
-
-/** Returns the account for an ADMIN_EMAILS address, creating it or granting it admin rights as needed. */
+/**
+ * Returns the account for an ADMIN_EMAILS address, creating it as needed. The account is verified and counts as an
+ * adult; its admin rights come from the list itself (utils/accounts.js), checked on every request.
+ */
 function ensureAdminAccount(rawEmail) {
-  const email = validator.normalizeEmail(rawEmail) || rawEmail.toLowerCase();
-  let adminUser = UserModel.findByEmail(email);
-  if (!adminUser) {
-    UserModel.create(email, 'Admin', 'Zajęcia');
-    adminUser = UserModel.findByEmail(email);
-  }
-  if (!adminUser.is_admin) {
-    getDb().prepare('UPDATE users SET is_admin = 1, is_verified = 1, age_category = ? WHERE id = ?').run('adult', adminUser.id);
-    adminUser = UserModel.findById(adminUser.id);
-  }
-  return adminUser;
+  const email = normalizedEmail(rawEmail);
+  UserModel.getOrCreate(email);
+  getDb().prepare(
+    "UPDATE users SET is_verified = 1, age_category = COALESCE(age_category, 'adult'), first_name = COALESCE(first_name, 'Admin'), last_name = COALESCE(last_name, 'Zajęcia') WHERE email = ?"
+  ).run(email);
+  return UserModel.findByEmail(email);
 }
 
-if (!ADMIN_EMAILS.length && process.env.NODE_ENV !== 'test') {
+const startupAdmins = adminEmails();
+if (!startupAdmins.length && process.env.NODE_ENV !== 'test') {
   console.warn('ADMIN_EMAILS is empty: nobody can sign in to the admin panel.');
 }
-ADMIN_EMAILS.forEach(ensureAdminAccount);
+startupAdmins.forEach(ensureAdminAccount);
+// users.is_admin mirrors the list for queries and for anyone reading the database; it grants nothing by itself.
+UserModel.syncAdminFlags(startupAdmins);
 
 /** Creates or updates an INSTRUCTORS account: the instructor flag, and the first name the configuration gives it. */
 function ensureInstructorAccount(rawEmail, firstName) {
@@ -83,18 +82,17 @@ router.post('/admin/login', adminLoginLimiter, async (req, res) => {
     return render({ error: 'Podaj prawidłowy adres e-mail.' });
   }
 
-  const normalizedEmail = validator.normalizeEmail(email);
-  const isValidAdmin = ADMIN_EMAILS.some(e => validator.normalizeEmail(e) === normalizedEmail);
-  if (!isValidAdmin) {
+  const address = normalizedEmail(email);
+  if (!isAdminEmail(address)) {
     console.warn(`Admin login requested for an address that is not an admin, from ${req.ip}`);
     return render({ success: SENT });
   }
 
   try {
-    const adminUser = ensureAdminAccount(normalizedEmail);
+    const adminUser = ensureAdminAccount(address);
     MagicTokenModel.cleanExpired();
     const { magicLink } = createMagicLink(adminUser.id);
-    await sendMagicLink(normalizedEmail, magicLink, false);
+    await sendMagicLink(address, magicLink, false);
     return render({ success: SENT });
   } catch (err) {
     console.error('Błąd wysyłki magic link (admin):', err);

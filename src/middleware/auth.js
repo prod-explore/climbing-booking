@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { UserModel, MagicTokenModel } = require('../models/database');
 const { assertStrongSecret } = require('../utils/secrets');
 const { appUrl } = require('../utils/appUrl');
+const { withRoles } = require('../utils/accounts');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error('FATAL: JWT_SECRET is not set in .env');
@@ -31,15 +32,14 @@ function createMagicLink(userId) {
 }
 
 /**
- * The session JWT, valid for 90 days. It carries only the user id (plus e-mail and admin flag); loadUser reads the
- * account from the database on every request, so roles and profile changes apply at once.
+ * The session JWT, valid for 90 days. It carries only the account id and e-mail, no role: loadUser reads the account
+ * on every request and the admin role from ADMIN_EMAILS, so role and profile changes apply at once.
  */
 function createSessionToken(user) {
   return jwt.sign(
     {
       userId: user.id,
-      email: user.email,
-      isAdmin: user.is_admin === 1
+      email: user.email
     },
     JWT_SECRET,
     { algorithm: JWT_ALGORITHM, expiresIn: '90d' }
@@ -48,6 +48,7 @@ function createSessionToken(user) {
 
 /**
  * Sets req.user from the session cookie, or null. Never refuses a request: the require* guards below do that.
+ * `is_admin` comes from ADMIN_EMAILS at this request (utils/accounts.js), `is_instructor` from the account.
  * An invalid or expired token, or one whose account no longer exists, clears the cookie.
  */
 function loadUser(req, res, next) {
@@ -66,7 +67,7 @@ function loadUser(req, res, next) {
       res.clearCookie('authToken');
       req.user = null;
     } else {
-      req.user = user;
+      req.user = withRoles(user);
     }
   } catch (err) {
     res.clearCookie('authToken');
