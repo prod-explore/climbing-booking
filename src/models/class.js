@@ -107,7 +107,7 @@ const ClassModel = {
 
   archivePastWeek: () => {
     const result = getDb().prepare(
-      "UPDATE classes SET is_archived = 1 WHERE start_time < ? AND is_archived = 0"
+      "UPDATE classes SET is_archived = 1 WHERE datetime(start_time) < datetime(?) AND is_archived = 0"
     ).run(getMondayStr());
     
     if (result.changes > 0) {

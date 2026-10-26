@@ -64,7 +64,7 @@ function initDatabase() {
 
   // app.js repeats this every 24 hours, the first time a day after launch; running it here covers every start.
   const archived = db.prepare(
-    "UPDATE classes SET is_archived = 1 WHERE start_time < ? AND is_archived = 0"
+    "UPDATE classes SET is_archived = 1 WHERE datetime(start_time) < datetime(?) AND is_archived = 0"
   ).run(getMondayStr());
 
   if (archived.changes > 0) {
