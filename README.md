@@ -1,285 +1,194 @@
-# Fantastyczne Wspinanie: climbing class booking
+# climbing-booking
 
-[![CI](https://github.com/prod-explore/climbing-booking/actions/workflows/ci.yml/badge.svg)](https://github.com/prod-explore/climbing-booking/actions/workflows/ci.yml) ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-green.svg)
+[![CI](https://github.com/prod-explore/climbing-booking/actions/workflows/ci.yml/badge.svg)](https://github.com/prod-explore/climbing-booking/actions/workflows/ci.yml)
 
-Registration system for a climbing school, in production for 200+ users. One Express process renders the pages (EJS) and keeps everything in one SQLite file: no SPA, no separate API, no database server. What a generic booking form does not do: separate adult and child places per class, counted inside the booking transaction; a waiting list that books the next person by itself; and login by a one-time e-mail link that mail scanners cannot use up. The interface is in Polish; code and docs are in English.
+Class sign-up for a climbing school. Participants see a weekly schedule, book themselves and up to four other people,
+and join a waiting list when a class is full; the first person on the list is booked automatically when a place frees
+up. Family classes keep separate places for adults and children. Login is by a one-time link sent by e-mail, so
+there are no passwords. Instructors see the participant lists of their own classes; an administrator runs the schedule.
 
-![Public class calendar with demo data](docs/images/calendar.png)
+One Node.js process (Express 5, server-rendered EJS) with a SQLite database, shipped as a Docker image for amd64 and
+arm64. The interface and the e-mails are in Polish.
 
-```bash
-git clone https://github.com/prod-explore/climbing-booking.git && cd climbing-booking
+[[Q1: Does it run in production for a real school? Since when, and with how many accounts or bookings? May the README name the school and link the live site?]]
+[[Q2: In one sentence, who was it built for and what did it replace?]]
+
+![The public weekly calendar with the sample classes from npm run seed](docs/images/calendar.png)
+
+*The public calendar, filled with the sample data from `npm run seed`.*
+
+## Try it locally
+
+Needs Node.js 22 or newer and a POSIX shell (on Windows: Git Bash or WSL).
+
+```sh
+git clone https://github.com/prod-explore/climbing-booking.git
+cd climbing-booking
 npm ci
-cp .env.example .env && echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
-npm run seed && npm start    # then open http://localhost:3000/calendar?week=1
+cp .env.example .env
+echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+npm run seed
+npm start
 ```
 
-To log in locally, request a link for `admin@example.com` at <http://localhost:3000/admin/login> (or any address at `/login`): without `RESEND_API_KEY` the e-mail, with its link, is printed in the terminal instead of being sent (only outside production).
+`npm run seed` adds five sample classes for next week, three instructors, three bookings and sample venue details to
+an empty local database (`data/climbing-booking.db`). It refuses to run on a database that already has classes, or
+with `NODE_ENV=production`. Then:
 
----
+- Open <http://localhost:3000/calendar?week=1> to see the week above.
+- Sign in at <http://localhost:3000/login> with any address. Without `RESEND_API_KEY` the e-mail is not sent: the
+  server prints it, login link included, to the terminal. Open the link and confirm.
+- The administrator is `admin@example.com` (from `ADMIN_EMAILS` in `.env`); sign in at
+  <http://localhost:3000/admin/login>.
+- `anna.instruktor@example.com` is one of the sample instructors; after signing in, open
+  <http://localhost:3000/instructor>.
 
-## Architecture
+`.env.example` documents every variable. If you change `PORT`, change `APP_URL` too: the links in the e-mails are
+built from it.
+
+## What it does
+
+| Who | What they can do |
+| --- | --- |
+| Visitor | See this week's classes on the home page and the coming weeks in the calendar, with the free places of each pool. |
+| Participant | Sign in by e-mail link, complete a profile once, book themselves plus up to four people, cancel a whole booking or one person, join and leave a waiting list. |
+| Instructor | See the classes linked to their account and the participant lists of those classes. Read-only. |
+| Administrator | Create, edit, cancel, archive and restore classes; copy this week's classes forward; see attendance and waiting lists; remove a participant (the person who booked gets an e-mail); approve parental consent for 16- and 17-year-olds; set the operator and venue details shown on the public pages. |
+
+The rules behind this (age limits, the two pools, when cancelling is allowed, how the waiting list moves) are in
+[docs/booking-rules.md](docs/booking-rules.md).
+
+## How it works
 
 ```mermaid
-graph TD
-    Client[Browser / phone] -->|HTTPS, reverse proxy| Node[Express app]
-
-    subgraph One process
-        Node --> Auth[Magic link + JWT session cookie]
-        Node --> Views[EJS views]
-        Node --> DB[(SQLite file, WAL, better-sqlite3)]
-    end
-    Node -->|e-mail| Email[Resend API]
+flowchart LR
+    B[Browser] -->|HTTPS| P[Reverse proxy]
+    P -->|climbing-booking-network| A["App container<br/>Express 5 + EJS"]
+    A --> D[("SQLite file<br/>on a Docker volume")]
+    A -->|HTTPS| R[Resend API]
 ```
 
-```
-src/
-├── app.js            middleware order, error pages, startup
-├── routes/           auth, user (calendar, booking), admin, instructor
-├── middleware/       session (auth.js), same-origin check, rate limits, helmet/CSP
-├── models/           connection.js and one file per model (database.js re-exports them)
-├── migrations/       numbered SQL files and their runner
-├── services/         e-mail (Resend), waiting list promotion
-└── utils/            configuration parsing, site settings, safe redirects, ...
-views/                EJS templates (Polish UI)
-scripts/seed-demo.js  sample data for a local database
-```
+- **Server-rendered pages, no front-end build.** Every page is an EJS template. Client-side JavaScript (two files in
+  `public/js/` and inline blocks in some views) only adds modals, tabs and notices. Forms post to the server, which
+  redirects with the outcome.
+- **One SQLite file, opened synchronously.** `better-sqlite3` in WAL mode, foreign keys on. Numbered SQL files in
+  `src/migrations/` are applied at start-up, each in its own transaction.
+- **Configuration in the environment, venue details in the database.** Admin and instructor accounts come from
+  `ADMIN_EMAILS` and `INSTRUCTORS` and are created at start-up. Who the data controller is and where the classes take
+  place are edited at `/admin/settings`; until then the public pages show visible placeholders.
+- **No job queue.** A timer in the process archives the classes of past weeks once a day (and at every start).
+  Waiting-list promotion runs in the request that freed the place; its e-mail is not awaited, and a failure is
+  logged without reaching the user who cancelled.
 
----
+### Decisions and their trade-offs
 
-## Key decisions
+**The capacity check and the insert share one write transaction.** `BookingModel.book` opens the transaction with
+`BEGIN IMMEDIATE`, which takes SQLite's write lock before it counts the free places, then inserts the booking and its
+participants. Two people booking the last place at the same moment cannot both get it, also when one of them is the
+waiting list promoting someone. The route's own checks before that only produce clearer error messages. The price is
+SQLite's single writer.
 
-- **Why SQLite over PostgreSQL/MySQL?** It is a single-tenant deployment for one climbing school. `better-sqlite3` gives synchronous queries without a network hop, WAL mode lets reads run while a booking writes, and there is no database server to run or back up separately: the whole state is one file on a Docker volume.
-- **Why server-side rendering (EJS) over a SPA?** The application is mostly forms, lists and a weekly calendar. Rendering on the server removed a separate REST API and client-side state for a solo developer, and the first paint does not wait for a JavaScript bundle, which matters on phones in a climbing hall with poor coverage.
-- **Why does the e-mail link only show a button?** Mail scanners and link previews open the URLs in a message before the person does. If opening the link logged you in (and spent the one-time token), the token could be gone by the time of the real click. `GET /auth/verify` therefore only renders a confirmation page; `POST /auth/verify` checks and spends the token in one transaction and sets the session. The token is also kept out of the access log.
-- **Why are the places counted inside the booking transaction?** The limit of each pool (adults, children) is a rule about the data, so `BookingModel.book` enforces it under `BEGIN IMMEDIATE` and throws `SpotsError`, instead of relying on the route checking first and inserting next. The route's own check only produces a readable message.
-- **Why are the operator and venue details in the database?** Who the data controller is, their tax number (NIP), where the classes take place and who funds them differ per deployment and change over time, so they are not written in the templates. They are rows of `site_settings`, edited in the admin panel (`/admin/settings`, NIP checked with its control digit); the footer, privacy policy, terms and the map print them, and until they are filled in the pages show a visible placeholder and the admin dashboard says so. An optional funding note (for example an EU co-funding notice) is shown on the home and login pages, in the footer and in the e-mails only when it is set. Likewise `og:url`, `og:image` and the canonical link are built from `APP_URL`, so a link shared on Messenger or Facebook leads to the real site.
-- **How did the schema evolve?** Through numbered migrations, following the school's needs: user verification and parental consent for 16–17-year-olds, an instructor role, classes with a separate children's pool and children's instructor, colours and an archive, the waiting list, the site settings, and finally foreign keys from classes to instructor accounts. Until migration 008 a class named its instructor in free text and the panel matched it against first names, so "Jan" also saw "Janina"'s classes; the migration links existing classes only where the name matches exactly one account and leaves the rest for an administrator to pick.
+**A login link shows a button; it does not sign you in.** Mail scanners and link previews open the links in a
+message. If `GET /auth/verify` used the token, a scanner would spend it before the person clicks. The GET page only
+asks for confirmation; `POST /auth/verify` checks and spends the token in one transaction. Tokens are 32 random bytes,
+valid for 15 minutes, single use.
 
----
+**Sessions are a signed cookie, not server-side state.** The cookie holds an HS256 JWT valid for 90 days. Every
+request loads the account from the database, so a changed role or profile applies at once, but a session cannot be
+ended from the server before it expires (see [Known limitations](#known-limitations)).
 
-## Features
+**Instructors are linked to classes by account id, not by name.** Migration 008 replaced a name match in which
+"Jan" also saw "Janina"'s participants. It links existing classes only where exactly one instructor account matches
+and leaves the rest for an administrator to assign.
 
-**Participants**
-- Weekly calendar of upcoming classes; booking yourself plus up to four more people, with each person's age deciding the pool (adult from 16, child below).
-- Separate adult and child places per class, enforced in the booking transaction: a group is booked whole or not at all, and a child is booked only together with an adult.
-- Waiting list for full classes (adults, up to 15 per class): when a place frees up, the first person is booked and told by e-mail.
-- Cancelling a booking or a single participant up to two hours before the class.
-- Accounts for 16- and 17-year-olds wait for an administrator's approval before they can book.
+**One container, one database, one process.** No external database or cache to run. In exchange, the rate limits
+live in memory and the app cannot be scaled to more than one instance on the same data.
 
-**Instructors**
-- Accounts come from configuration (`INSTRUCTORS`), not from the database or the code.
-- A class points at instructor accounts (main and children's instructor, picked from a list in the class form); an instructor sees only the classes linked to their account and their participant lists, which can be copied as text or printed.
+### Security model
 
-**Administrators**
-- Creating, editing, cancelling and archiving classes; copying the current week's classes one or more weeks ahead; past weeks are archived automatically.
-- Participant lists with removal (the person who booked gets an e-mail) and the waiting list; approval of minors' accounts.
-- Operator and venue details and an optional funding note (`/admin/settings`); a count of visits from the QR code on printed leaflets (`/qr`), which stores an HMAC of the visitor's IP address, never the address (key: `IP_HASH_SECRET`, or derived from `JWT_SECRET`).
+| Concern | What the code does | Where |
+| --- | --- | --- |
+| Stolen or replayed login link | Random 256-bit token, 15 minutes, spent atomically on the POST; the confirmation page is `no-store`; the access log prints `token=[redacted]`. | `src/middleware/auth.js`, `src/models/magicToken.js`, `src/utils/redactUrl.js` |
+| Forged session | JWT verified with HS256 only. The app refuses to start with the placeholder from `.env.example`, a secret shorter than 32 characters or one with few distinct characters. | `src/middleware/auth.js`, `src/utils/secrets.js` |
+| Cross-site requests | Session cookie is `HttpOnly`, `SameSite=Lax` and `Secure` in production. Every POST, PUT, PATCH and DELETE that carries an `Origin` or `Referer` must name this host. | `src/middleware/sameOrigin.js` |
+| Open redirect after login | `next` must be a local path; `//host`, `/\host` and control characters are refused. | `src/utils/safeNext.js` |
+| Inbox flooding and enumeration | Login links are limited per IP (5 an hour by default) and per address (3 an hour); a hidden honeypot field drops bots. The admin login answers the same for every address and sends a link only to `ADMIN_EMAILS`. | `src/middleware/security.js`, `src/routes/auth.routes.js`, `src/routes/admin.routes.js` |
+| Script injection | EJS escapes output; data embedded in `<script>` goes through `safeJson`; HTML tags are stripped from form input; helmet sets a CSP. | `views/`, `src/utils/safeJson.js`, `src/middleware/security.js` |
+| Participant data | An instructor sees a participant list only for classes linked to their account. Visits from the leaflet QR code store an HMAC of the IP address, never the address. | `src/routes/instructor.routes.js`, `src/utils/ipHash.js` |
+| Error details | In production the error page says only that something failed. | `src/app.js` |
+| Container | Runs as the unprivileged `node` user, publishes no host port, has memory and CPU limits. | `Dockerfile`, `docker-compose.yml` |
 
-**E-mail** (Resend): the login link, a notice when the admin removes a participant, and a notice when the waiting list books you.
+Third parties: every page loads Google Fonts; the home page embeds a Google Maps frame once a venue address is set.
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
-**Security**: one-time login links (15 minutes, spent on a confirmation click, at most three per address per hour), an HttpOnly + SameSite=Lax session cookie (Secure in production) signed with HS256 only, a same-origin check on every state-changing request, rate limits per IP, `helmet` headers and CSP, escaped output in the views, and a startup check that refuses a placeholder `JWT_SECRET`. See *Known limitations* for what is not covered.
+## Deployment
 
----
+CI builds the image natively for `linux/amd64` and `linux/arm64` and publishes it as
+`ghcr.io/prod-explore/climbing-booking` (`latest` from `main`, plus a `sha-<commit>` tag for every published build).
+[[Q3: Is the GHCR package public, so that anyone can pull it without logging in?]] On the server, the repository
+provides `docker-compose.yml` and `scripts/deploy.sh`:
 
-## Database schema (ERD)
-
-```mermaid
-erDiagram
-    users {
-        INTEGER id PK
-        TEXT email UK
-        TEXT first_name
-        TEXT last_name
-        TEXT age_category
-        INTEGER is_verified
-        INTEGER consent_requested
-        INTEGER is_admin
-        INTEGER is_instructor
-        TEXT birth_date
-        INTEGER marketing_consent
-        DATETIME created_at
-        DATETIME last_login
-    }
-    magic_tokens {
-        INTEGER id PK
-        INTEGER user_id FK
-        TEXT token UK
-        DATETIME expires_at
-        INTEGER used
-        DATETIME created_at
-    }
-    classes {
-        INTEGER id PK
-        TEXT name
-        TEXT description
-        DATETIME start_time
-        INTEGER duration_min
-        TEXT class_type
-        INTEGER max_spots
-        INTEGER max_child_spots
-        TEXT instructor
-        TEXT child_instructor
-        INTEGER instructor_id FK
-        INTEGER child_instructor_id FK
-        TEXT category
-        TEXT color
-        INTEGER is_cancelled
-        INTEGER is_archived
-        INTEGER waiting_list_enabled
-        INTEGER max_waiting_spots
-        DATETIME created_at
-    }
-    waiting_list {
-        INTEGER id PK
-        INTEGER class_id FK
-        INTEGER user_id FK
-        DATETIME created_at
-    }
-    bookings {
-        INTEGER id PK
-        INTEGER class_id FK
-        INTEGER user_id FK
-        DATETIME created_at
-    }
-    participants {
-        INTEGER id PK
-        INTEGER booking_id FK
-        TEXT first_name
-        TEXT last_name
-        TEXT age_category
-        INTEGER is_main
-        INTEGER age
-        INTEGER child_age
-    }
-    qr_scans {
-        INTEGER id PK
-        TEXT ip
-        TEXT user_agent
-        DATETIME scanned_at
-    }
-    site_settings {
-        TEXT key PK
-        TEXT value
-        DATETIME updated_at
-    }
-    schema_migrations {
-        INTEGER id PK
-        TEXT filename UK
-        DATETIME applied_at
-    }
-
-    users ||--o{ magic_tokens  : "has"
-    users ||--o{ bookings      : "creates"
-    classes ||--o{ bookings    : "contains"
-    bookings ||--o{ participants : "groups"
-    classes ||--o{ waiting_list : "queues"
-    users ||--o{ waiting_list  : "joins"
-    users |o--o{ classes       : "instructs"
+```sh
+cp .env.example .env    # production values: APP_URL, JWT_SECRET, RESEND_API_KEY, EMAIL_FROM, ADMIN_EMAILS
+scripts/deploy.sh               # pull `latest`, start it, wait for the health check
+scripts/deploy.sh sha-1a2b3c4   # deploy, or go back to, a given build
 ```
 
-`bookings` and `waiting_list` are also unique per `(class_id, user_id)`: one booking and one waiting-list place per person and class. `classes.instructor_id` and `child_instructor_id` both reference `users`; the `instructor` and `child_instructor` text columns keep the display name.
+`deploy.sh` waits up to 90 seconds for the container to report healthy (`GET /healthz` runs `SELECT 1` on the
+database) and restarts the previous image when the new one does not get there.
 
----
-
-## Schema migrations
-
-The schema changes through numbered SQL files. A new file is applied on the next start, once, in its own transaction, and recorded in `schema_migrations`:
-
-```
-src/migrations/
-├── runner.js
-├── 001_init_schema.sql
-├── 002_user_verification.sql
-├── 003_instructor_role.sql
-├── 004_family_classes.sql
-├── 005_class_color_archive.sql
-├── 006_waiting_list.sql
-├── 007_site_settings.sql
-└── 008_class_instructor_ids.sql
-```
-
----
-
-## Running it
-
-### Locally
-
-The quick start at the top runs it in development mode (Node.js 22 or newer). Configuration lives in `.env`; `.env.example` lists and explains every variable. The ones that matter:
-
-- `JWT_SECRET`: signs the session cookie. Generate it with `openssl rand -hex 32`; the app refuses to start with a placeholder, a short or a repetitive value (unless `ALLOW_WEAK_SECRETS=true`, for local work).
-- `APP_URL`: the public address; links in e-mails and link previews are built from it. Required in production.
-- `ADMIN_EMAILS` and `INSTRUCTORS` (`address:First name`, comma-separated): the accounts are created on start.
-- `RESEND_API_KEY` and `EMAIL_FROM`: required in production. The sender defaults to `noreply@` on the host of `APP_URL`, and Resend only sends from a verified domain.
-- `CONTACT_EMAIL`: the public contact address on the pages and in the e-mails.
-- `IP_HASH_SECRET` (optional): the key for hashing QR visitors' IP addresses; without it a key is derived from `JWT_SECRET`.
-
-After the first admin login, fill in the operator and venue details under *Ustawienia* (`/admin/settings`).
-
-### With Docker
-
-```bash
-cp .env.example .env    # set JWT_SECRET, APP_URL, ADMIN_EMAILS, RESEND_API_KEY
-scripts/deploy.sh       # pulls the published image (amd64 and arm64), starts it, waits for the health check
-```
-
-The container `climbing-booking-app` runs in production mode as the unprivileged `node` user, keeps the database on the volume `climbing_booking_data` and has a health check on `/healthz`. **No port is published on the host**: the reverse proxy joins the `climbing-booking-network` network and reaches the app at `climbing-booking-app:3000` (with [nginx-reverse-proxy](https://github.com/prod-explore/nginx-reverse-proxy), list that network in its `docker-compose.override.yml`). To try it on one machine without a proxy, copy `docker-compose.override.example.yml` to `docker-compose.override.yml`, which opens `127.0.0.1:3000`.
-
-The image is built by the [Image workflow](.github/workflows/image.yml) on every push to `main` (GitHub Container Registry, `ghcr.io/prod-explore/climbing-booking`), so nothing is compiled on the server. `scripts/deploy.sh` is the whole update procedure: it pulls, restarts, waits for `healthy` and, if the new container does not become healthy, puts the previous image back and exits non-zero. `scripts/deploy.sh sha-1a2b3c4` deploys (or rolls back to) a given build. To build from source instead: `docker compose up --build -d`. The database is on the volume and is never touched by an update.
-
----
-
-## Tests and checks
-
-```bash
-npm test       # jest
-npm run lint   # ESLint
-```
-
-There are more than 170 tests in 22 files (jest reported 171 when this README was last updated; the figure here is rounded down to the ten). The suite uses an in-memory SQLite database and needs no services. It runs against the real models and the real app (supertest, no port opened); only the e-mail sender is replaced where a test would send mail:
-
-- **Capacity** (`BookingModel.book`): a refused group leaves nothing behind, the adult and child pools stay apart, duplicates use no places, the waiting list is promoted through the real service.
-- **Login tokens**: expiry (including a token that expired a minute ago, the same day), single use.
-- **Login flow over HTTP**: the e-mail link does not spend the token, `POST /auth/verify` logs in once, the `next` parameter cannot leave the site, the per-address limit, the session cookie flags and the signing algorithm.
-- **HTTP**: health check, error pages, redirects of protected pages, security headers (including the referrer policy the same-origin check depends on), and the same-origin check on state-changing requests.
-- **Admin**: a rejected class form is shown again with what was typed, a long description is kept, instructors are picked from their accounts (an unknown id is refused, an old unlinked name can be kept), the admin login does not reveal which addresses are admins.
-- **Instructor access**: "Jan" sees neither "Janina"'s classes nor her participants' e-mail addresses; migration 008 links only unambiguous names.
-- **Views**: server data embedded in `<script>` elements stays inert, no view uses inline event handlers (the CSP blocks them), the calendar modals put names in as text.
-- **Site settings**: validation (NIP control digit), placeholders for what is not filled in, the admin-only page, and that the public pages print what was saved; `og:url`, `og:image` and the canonical link come from `APP_URL`.
-- **Configuration and e-mail**: the secret and `APP_URL` checks; parsing of `ADMIN_EMAILS` and `INSTRUCTORS`; the contact address on the pages and in the e-mails (Resend mocked); printing instead of sending outside production; the access log hides login tokens.
-- **Migrations and demo data**: the runner applies every file once and records it; the seed script fills only an empty database.
-
-## CI
-
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request to `main`:
-
-1. on Node 22 and 24: `npm ci`, `npm run lint`, `npm test`, and `npm audit --omit=dev --audit-level=high`;
-2. builds the Docker image, starts it and waits for `/healthz` to answer.
-
-Dependabot proposes weekly updates for npm packages, the Docker base image and the Actions used.
-
----
-
-## Technical stack
-
-- **Runtime and framework**: Node.js 22+, Express 5
-- **Database**: SQLite through `better-sqlite3`, WAL mode
-- **Views**: EJS, plain CSS and JavaScript
-- **Authentication**: one-time links, JWT session cookie (`jsonwebtoken`)
-- **E-mail**: Resend
-- **Security**: `helmet` (headers and CSP), `express-rate-limit` plus a per-address limit, `validator`
-- **Tests**: Jest, supertest; **lint**: ESLint
-
----
+The container publishes no port. A reverse proxy that terminates TLS joins the `climbing-booking-network` Docker
+network and forwards to `climbing-booking-app:3000`. It must pass the browser's `Host` header through, or the
+same-origin check refuses every form. The configuration reference, the proxy settings, backups and the first-run
+steps are in [docs/deployment.md](docs/deployment.md).
 
 ## Known limitations
 
-- **The CSP allows inline `<script>` blocks** (`'unsafe-inline'` in `script-src`): the views keep their page scripts inline. Inline event handler attributes are already blocked (`script-src-attr 'none'`, and a test keeps them out); moving the script blocks to files under `public/js/` would allow dropping `'unsafe-inline'`.
-- **A session is a 90-day JWT** that cannot be revoked before it expires; logging out clears the cookie only. Server-side sessions (a session table) would fix it.
-- **Rate limits live in memory**, so they reset on restart, and the app is a single process by design (SQLite, no shared state).
-- **Input is sanitised twice**: tags are stripped from every body field (`sanitizeBody`) and EJS escapes on output. The second is the one that protects; the first is a legacy of the early versions.
+- **`'unsafe-inline'` scripts in the CSP.** Several views still contain inline `<script>` blocks, so the policy
+  cannot forbid inline scripts. Output escaping and input tag stripping are the defence against injected script.
+- **Sessions cannot be revoked before they expire.** Signing out clears the cookie in that browser only. The one way
+  to end every session at once is a new `JWT_SECRET`, which signs everybody out.
+- **In-memory rate limits.** The counters reset when the process restarts and are not shared between processes,
+  which is one reason the app runs as a single instance.
+- **One instance on one SQLite file.** There is no replication and no built-in backup;
+  [docs/deployment.md](docs/deployment.md#data-and-backups) shows how to copy the database while the app runs.
+- **Class times have no time zone.** They are stored as local wall-clock time (`2026-10-26T17:00`) and compared with
+  the server clock in the process's time zone. Neither the Dockerfile nor `docker-compose.yml` sets `TZ`, so the
+  container runs in UTC unless `.env` sets it. [[Q4: Does production set TZ (for example TZ=Europe/Warsaw) in .env?]]
+- **The waiting list is for one adult at a time.** Only the account holder can join it, and each freed place
+  promotes one person. Cancelling a whole class does not e-mail its participants.
+- **Polish only.** The interface, the e-mails and the legal pages (privacy policy, terms, cookies) are written in
+  Polish, for an operator in Poland (the settings ask for a NIP tax number).
 
----
+## Development
+
+```sh
+npm test                  # Jest + supertest, on an in-memory database; no port is opened, no e-mail is sent
+npm run lint              # ESLint over the server, the client scripts and the tests
+TEST_VERBOSE=1 npm test   # the same, with the app's own console output
+```
+
+CI runs lint, the tests and `npm audit --omit=dev --audit-level=high` on Node.js 22 and 24, then builds the Docker
+image and waits for `/healthz` to answer. Dependabot groups minor and patch updates weekly; major versions are
+chosen by hand.
+
+```text
+src/
+  app.js            configuration checks, middleware order, routers, error pages
+  routes/           auth, participant, admin and instructor pages
+  middleware/       session and role guards, same-origin check, rate limits and headers
+  models/           one file per table; database.js re-exports them
+  services/         e-mail (Resend), waiting-list promotion, attendance lists
+  migrations/       numbered SQL files and the runner that applies them
+  utils/            small helpers without database access
+  __tests__/        Jest suites
+views/              EJS templates (user, admin, instructor, partials)
+public/             CSS, two client scripts, the logo
+scripts/            deploy.sh, seed-demo.js
+```
+
+A schema change is a new file in `src/migrations/` with the next number; applied files are never edited.
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). [[Q5: The app name "Fantastyczne Wspinanie" and public/images/fw-logo.png are hard-coded and appear in the screenshot. Are they the school's real brand, and should the logo be excluded from the MIT licence?]]
