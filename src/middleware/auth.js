@@ -94,7 +94,7 @@ function requireAuth(req, res, next) {
  * them after losing the role.
  */
 function hasCompleteProfile(user) {
-  return Boolean(user && user.first_name && user.last_name && user.birth_date && user.terms_accepted);
+  return Boolean(user && user.first_name && user.last_name && user.birth_date && user.terms_accepted_at);
 }
 
 /** Requires a complete profile (hasCompleteProfile); otherwise sends the user to complete it. */

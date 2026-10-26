@@ -118,6 +118,9 @@ except two that drop a column: 009 drops `participants.child_age`, so an image b
 and 010 drops `users.age_category`, so an image built before it fails on profile completion and on every page that
 needs a profile. Roll back past 009 or 010 only together with a database backup taken before it.
 
+Migration 011 adds `users.terms_accepted_at`, the time the terms were accepted. Accounts that completed their profile
+before it get their account creation time instead: an approximation, since the real time of acceptance was not stored.
+
 To build the image on the server instead of pulling it: `docker compose up -d --build`.
 
 ## Data and backups
