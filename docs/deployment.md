@@ -25,6 +25,7 @@ the variables with comments. `docker-compose.yml` always sets `NODE_ENV=producti
 
 | Variable | Default | Notes |
 | --- | --- | --- |
+| `TZ` | `Europe/Warsaw` in `docker-compose.yml`; the system zone elsewhere | The school's time zone. Class times are local wall-clock time compared with the clock in this zone: when booking closes, the 2-hour cancellation limit, which classes are upcoming, and the Monday 00:00 archiving all follow it, and a wrong zone shifts them by the difference. The start-up log line prints the zone in effect. Compose takes the value from `.env`, unless the shell that runs it exports `TZ`, which then wins. |
 | `APP_URL` | `http://localhost:<PORT>` outside production | Required in production. The public `https://` address; links in e-mails and the canonical and preview tags are built from it. |
 | `JWT_SECRET` | none | Required. Signs the session cookies. At least 32 characters, not the placeholder, not a few repeated characters: `openssl rand -hex 32`. A new value signs everybody out. |
 | `IP_HASH_SECRET` | derived from `JWT_SECRET` | Key for the HMAC of QR visitors' IP addresses; checked like `JWT_SECRET`. Changing it, or `JWT_SECRET` while it is unset, makes new hashes differ from stored ones. |
