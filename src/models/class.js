@@ -3,6 +3,7 @@
  */
 
 const { getDb, getMondayStr } = require('./connection');
+const { localDateTime } = require('../utils/localTime');
 
 const ClassModel = {
   getAll: () =>
@@ -35,6 +36,7 @@ const ClassModel = {
       ORDER BY c.start_time DESC
     `).all(),
 
+  /** Classes that have not started yet (by their local start time, see utils/localTime.js), not cancelled or archived. */
   getUpcoming: () =>
     getDb().prepare(`
       SELECT c.*,
@@ -45,9 +47,9 @@ const ClassModel = {
           JOIN bookings b ON p.booking_id = b.id
           WHERE b.class_id = c.id AND p.age_category = 'child') as child_taken
       FROM classes c
-      WHERE c.start_time > CURRENT_TIMESTAMP AND c.is_cancelled = 0 AND c.is_archived = 0
+      WHERE datetime(c.start_time) > datetime(?) AND c.is_cancelled = 0 AND c.is_archived = 0
       ORDER BY c.start_time ASC
-    `).all(),
+    `).all(localDateTime()),
 
   getById: (id) =>
     getDb().prepare(`

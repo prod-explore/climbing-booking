@@ -4,6 +4,7 @@
 
 const { getDb } = require('./connection');
 const { BookingModel, SpotsError } = require('./booking');
+const { localDateTime } = require('../utils/localTime');
 
 const WaitingListModel = {
   add: (userId, classId) =>
@@ -72,9 +73,9 @@ const WaitingListModel = {
       SELECT wl.*, c.name, c.start_time, c.duration_min, c.instructor, c.category, c.class_type, c.color
       FROM waiting_list wl
       JOIN classes c ON wl.class_id = c.id
-      WHERE wl.user_id = ? AND c.start_time > CURRENT_TIMESTAMP AND c.is_cancelled = 0 AND c.is_archived = 0
+      WHERE wl.user_id = ? AND datetime(c.start_time) > datetime(?) AND c.is_cancelled = 0 AND c.is_archived = 0
       ORDER BY c.start_time ASC
-    `).all(userId)
+    `).all(userId, localDateTime())
 };
 
 
