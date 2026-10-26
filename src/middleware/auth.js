@@ -89,14 +89,19 @@ function requireAuth(req, res, next) {
 }
 
 /**
- * Requires a completed profile; otherwise sends the user to complete it. A participant's names are set only by the
- * profile form (with the birth date and the accepted terms); administrator and instructor accounts get theirs when they
- * are created.
+ * Whether the account has been through the profile form: first and last name, birth date and the accepted terms.
+ * Names alone do not count: administrator and instructor accounts are given names when they are created, and keep
+ * them after losing the role.
  */
+function hasCompleteProfile(user) {
+  return Boolean(user && user.first_name && user.last_name && user.birth_date && user.terms_accepted);
+}
+
+/** Requires a complete profile (hasCompleteProfile); otherwise sends the user to complete it. */
 function requireProfile(req, res, next) {
   if (!req.user) return requireAuth(req, res, next);
 
-  if (!req.user.first_name || !req.user.last_name) {
+  if (!hasCompleteProfile(req.user)) {
     return res.redirect('/profile/complete?next=' + encodeURIComponent(req.originalUrl));
   }
   next();
@@ -135,6 +140,7 @@ module.exports = {
   createSessionToken,
   loadUser,
   requireAuth,
+  hasCompleteProfile,
   requireProfile,
   requireAdmin,
   requireInstructor,

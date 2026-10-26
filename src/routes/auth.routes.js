@@ -9,7 +9,7 @@ const validator = require('validator');
 
 const { UserModel, MagicTokenModel } = require('../models/database');
 const { sendMagicLink } = require('../services/emailService');
-const { createMagicLink, setAuthCookie, requireAuth } = require('../middleware/auth');
+const { createMagicLink, setAuthCookie, requireAuth, hasCompleteProfile } = require('../middleware/auth');
 const { magicLinkLimiter, emailRequestLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
 const { safeNext } = require('../utils/safeNext');
@@ -145,7 +145,10 @@ router.post('/auth/verify', (req, res) => {
       return res.redirect('/admin');
     }
 
-    if (!user.first_name || !user.last_name) {
+    if (!hasCompleteProfile(user)) {
+      // The instructor panel needs no profile: an instructor without one lands there instead of on the participant
+      // dashboard, and is asked for the profile only on the participant pages (requireProfile).
+      if (user.is_instructor) return res.redirect(nextUrl === '/dashboard' ? '/instructor' : nextUrl);
       return res.redirect('/profile/complete?next=' + encodeURIComponent(nextUrl));
     }
 
