@@ -55,6 +55,10 @@ function fundingNote() {
   }
 }
 
+/**
+ * Makes a value safe as HTML text or as a quoted attribute value. Every value interpolated into the HTML e-mails goes
+ * through it: names and class names are typed by people.
+ */
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -92,7 +96,8 @@ const CONTACT_EMAIL = contactEmail();
 const REPLY_TO      = process.env.EMAIL_REPLY || CONTACT_EMAIL;
 const APP_NAME      = 'Fantastyczne Wspinanie — System zapisów';
 
-function magicLinkEmailHTML(magicLink, isNewUser) {
+function magicLinkEmailHTML(rawMagicLink, isNewUser) {
+  const magicLink = escapeHtml(rawMagicLink);
   const heading = isNewUser
     ? 'Aktywuj konto &#x1F44B;'
     : 'Twój link do logowania';
@@ -211,7 +216,9 @@ async function initEmailService() {
   catch (err) { console.warn('⚠️  Resend:', err.message); }
 }
 
-function participantRemovedHTML(participantName, className, classDate) {
+function participantRemovedHTML(rawParticipantName, rawClassName, rawClassDate) {
+  const [participantName, className, classDate] = [rawParticipantName, rawClassName, rawClassDate].map(escapeHtml);
+  const contact = escapeHtml(CONTACT_EMAIL);
   return `<!DOCTYPE html>
 <html lang="pl" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -246,7 +253,7 @@ function participantRemovedHTML(participantName, className, classDate) {
             </table>
             <p style="margin:0;font-size:14px;line-height:1.6;color:#777;">
               Decyzja została podjęta przez administratora. W razie pytań skontaktuj się z nami pod adresem
-              <a href="mailto:${CONTACT_EMAIL}" style="color:#2d5a3d;font-weight:600;">${CONTACT_EMAIL}</a>.
+              <a href="mailto:${contact}" style="color:#2d5a3d;font-weight:600;">${contact}</a>.
             </p>
           </td>
         </tr>
@@ -285,7 +292,10 @@ async function sendParticipantRemovedEmail(toEmail, participantName, className, 
   return data;
 }
 
-function waitingListPromotedHTML(firstName, className, classDate, dashboardLink) {
+function waitingListPromotedHTML(rawFirstName, rawClassName, rawClassDate, rawDashboardLink) {
+  const [firstName, className, classDate, dashboardLink] =
+    [rawFirstName, rawClassName, rawClassDate, rawDashboardLink].map(escapeHtml);
+  const contact = escapeHtml(CONTACT_EMAIL);
   return `<!DOCTYPE html>
 <html lang="pl" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -330,7 +340,7 @@ function waitingListPromotedHTML(firstName, className, classDate, dashboardLink)
               </tr>
             </table>
             <p style="margin:0;font-size:13px;line-height:1.6;color:#777;">
-              W razie pytań skontaktuj się z nami: <a href="mailto:${CONTACT_EMAIL}" style="color:#2d5a3d;font-weight:600;">${CONTACT_EMAIL}</a>
+              W razie pytań skontaktuj się z nami: <a href="mailto:${contact}" style="color:#2d5a3d;font-weight:600;">${contact}</a>
             </p>
           </td>
         </tr>
