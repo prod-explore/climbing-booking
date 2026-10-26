@@ -35,8 +35,7 @@ const PORT = process.env.PORT || 3000;
 initDatabase();
 initEmailService().catch(err => console.warn('Email init warning:', err.message));
 
-// Required only now: admin.routes creates the configured admin and instructor accounts as it loads, which needs the
-// database to be open.
+// Required only now: admin.routes creates the ADMIN_EMAILS accounts as it loads, which needs the database to be open.
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const adminRoutes = require('./routes/admin.routes');

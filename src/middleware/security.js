@@ -37,7 +37,10 @@ function limitReached(req, res, _next, options) {
   });
 }
 
-/** Every request after the health check, per client IP; tunable through RATE_LIMIT_WINDOW_MS / _MAX_REQUESTS. */
+/**
+ * Every request except the health check and static files (both served before it, see app.js), per client IP;
+ * tunable through RATE_LIMIT_WINDOW_MS / _MAX_REQUESTS.
+ */
 const generalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
