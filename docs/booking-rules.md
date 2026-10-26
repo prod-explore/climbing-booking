@@ -57,6 +57,7 @@ booking, and the other way round.
   capacity transaction as any other booking, removed from the list and sent an e-mail. If the class is still full,
   nothing changes. A cancellation, a removal or a higher limit set by an administrator books as many people from the
   list as now fit, in list order, at once.
+- Nobody is promoted into a class that is cancelled or has already started; the list stays as it is.
 - Booking a class, by the list or directly, takes the person off that class's list. An entry whose person already
   has a booking of the class is dropped when the list moves, and the next person is promoted instead.
 - A person can leave the list at any time from their dashboard.

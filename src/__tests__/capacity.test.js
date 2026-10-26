@@ -44,6 +44,12 @@ function makeClass(overrides = {}) {
   }).lastInsertRowid;
 }
 
+/** Local 'YYYY-MM-DDTHH:mm', as the class form stores a start time, `minutes` from now. */
+function localStart(minutes) {
+  const d = new Date(Date.now() + minutes * 60000);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 const bookingCount = (classId) =>
   getDb().prepare('SELECT COUNT(*) AS n FROM bookings WHERE class_id = ?').get(classId).n;
 
@@ -189,6 +195,23 @@ describe('waiting list', () => {
     BookingModel.book(u.id, classId, [adult(1, true)]);
 
     expect(WaitingListModel.findByUserAndClass(u.id, classId)).toBeUndefined();
+  });
+
+  test.each([
+    ['a cancelled class', { startTime: '2999-01-01T10:00' }, true],
+    ['a class that has started', { startTime: localStart(-1) }, false]
+  ])('books nobody from the list into %s', async (_label, overrides, cancelled) => {
+    const classId = makeClass({ maxSpots: 2, waitingListEnabled: true, ...overrides });
+    if (cancelled) ClassModel.cancel(classId);
+    const waiting = makeUser();
+    WaitingListModel.add(waiting.id, classId);
+
+    await checkAndPromoteWaitingList(classId);
+    expect(WaitingListModel.promoteNext(classId)).toBeNull();
+
+    expect(BookingModel.findByUserAndClass(waiting.id, classId)).toBeUndefined();
+    expect(WaitingListModel.findByUserAndClass(waiting.id, classId)).toBeDefined();
+    expect(sendWaitingListPromotedEmail).not.toHaveBeenCalled();
   });
 
   test('keeps the order of the list when two people joined in the same second', () => {

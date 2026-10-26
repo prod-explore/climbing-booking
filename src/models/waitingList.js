@@ -40,10 +40,17 @@ const WaitingListModel = {
    * Books the first person on the class's list as one adult and takes them off it, in one write transaction.
    * An entry whose user already has a booking of the class is dropped and the next one tried, so a stale entry can
    * neither fail on bookings' UNIQUE(class_id, user_id) nor block the people behind it.
-   * Returns the promoted entry (with e-mail and name), or null when the list is empty or the adult pool is full.
+   * Nobody is booked into a class that is cancelled or has started (by its local start time, utils/localTime.js).
+   * Returns the promoted entry (with e-mail and name), or null when the list is empty, the adult pool is full, or the
+   * class is no longer open.
    */
   promoteNext: (classId) => {
     const run = getDb().transaction(() => {
+      const open = getDb().prepare(
+        'SELECT 1 FROM classes WHERE id = ? AND is_cancelled = 0 AND datetime(start_time) > datetime(?)'
+      ).get(classId, localDateTime());
+      if (!open) return null;
+
       for (let entry = WaitingListModel.getFirst(classId); entry; entry = WaitingListModel.getFirst(classId)) {
         if (BookingModel.findByUserAndClass(entry.user_id, classId)) {
           WaitingListModel.remove(entry.user_id, classId);
