@@ -1,4 +1,4 @@
-const { parseEmailList, parseInstructors } = require('../utils/accounts');
+const { parseEmailList, isAdminEmail } = require('../utils/accounts');
 
 describe('parseEmailList', () => {
   test('trims, lower-cases and drops invalid entries', () => {
@@ -10,17 +10,15 @@ describe('parseEmailList', () => {
   });
 });
 
-describe('parseInstructors', () => {
-  test('parses "email:Name" pairs', () => {
-    expect(parseInstructors('anna@x.pl:Anna, Jan@y.pl:Jan')).toEqual([
-      { email: 'anna@x.pl', firstName: 'Anna' },
-      { email: 'jan@y.pl', firstName: 'Jan' },
-    ]);
+describe('isAdminEmail', () => {
+  const env = { ADMIN_EMAILS: 'Owner@Example.com, boss@example.com' };
+  test('matches a listed address whatever its case', () => {
+    expect(isAdminEmail('owner@example.com', env)).toBe(true);
+    expect(isAdminEmail('BOSS@example.com', env)).toBe(true);
   });
-  test('skips entries without a name or with a bad address', () => {
-    expect(parseInstructors('anna@x.pl, :Bob, bad:Eve, ok@x.pl:Zed')).toEqual([{ email: 'ok@x.pl', firstName: 'Zed' }]);
-  });
-  test('missing input gives an empty list', () => {
-    expect(parseInstructors(undefined)).toEqual([]);
+  test('refuses anything else, and everyone when the list is empty', () => {
+    expect(isAdminEmail('someone@example.com', env)).toBe(false);
+    expect(isAdminEmail(undefined, env)).toBe(false);
+    expect(isAdminEmail('owner@example.com', {})).toBe(false);
   });
 });

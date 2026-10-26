@@ -139,14 +139,7 @@ const ClassModel = {
       FROM classes c
       WHERE c.instructor_id = ? OR c.child_instructor_id = ?
       ORDER BY start_time DESC
-    `).all(userId, userId),
-
-  /** Keeps the display name of linked classes in step with the account's first name. */
-  syncInstructorName: (userId, name) => {
-    const db = getDb();
-    db.prepare('UPDATE classes SET instructor = ? WHERE instructor_id = ?').run(name, userId);
-    db.prepare('UPDATE classes SET child_instructor = ? WHERE child_instructor_id = ?').run(name, userId);
-  }
+    `).all(userId, userId)
 };
 
 

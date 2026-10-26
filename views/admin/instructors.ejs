@@ -1,0 +1,107 @@
+<%- include('../partials/head') %>
+
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <%- include('../partials/admin-sidebar-brand') %>
+    <nav class="admin-nav">
+      <a href="/admin" class="admin-nav-link">📊 Dashboard</a>
+      <a href="/admin/calendar" class="admin-nav-link">📅 Kalendarz</a>
+      <a href="/admin/classes/new" class="admin-nav-link">➕ Nowe zajęcia</a>
+      <a href="/admin/consents" class="admin-nav-link">📋 Zgody</a>
+      <a href="/admin/instructors" class="admin-nav-link active">🧗 Instruktorzy</a>
+      <a href="/admin/archive" class="admin-nav-link">🗄️ Archiwum</a>
+      <a href="/admin/settings" class="admin-nav-link">⚙️ Ustawienia</a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <form action="/auth/logout" method="POST">
+        <button type="submit" class="btn btn--outline btn--sm btn--full">Wyloguj</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div>
+        <h1>Instruktorzy</h1>
+        <p class="admin-topbar-sub">Konta z dostępem do panelu instruktora i do list uczestników swoich zajęć</p>
+      </div>
+      <a href="/admin" class="btn btn--outline">← Powrót</a>
+    </div>
+
+    <% if (success) { %>
+      <div class="alert alert--success"><%= success %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="alert alert--error"><%= error %></div>
+    <% } %>
+
+    <div class="admin-section">
+      <h2>Dodaj instruktora</h2>
+      <div class="admin-form-card">
+        <form action="/admin/instructors" method="POST" class="admin-form">
+          <div class="form-group">
+            <label class="form-label" for="instructor-email">E-mail *</label>
+            <input type="email" id="instructor-email" name="email" class="form-input" maxlength="254" required
+                   value="<%= form.email || '' %>">
+            <small class="booking-form-hint">Instruktor loguje się tym adresem, linkiem z e-maila. Konto powstaje, jeśli jeszcze go nie ma.</small>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="instructor-first-name">Imię</label>
+              <input type="text" id="instructor-first-name" name="firstName" class="form-input" maxlength="50"
+                     value="<%= form.firstName || '' %>">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="instructor-last-name">Nazwisko</label>
+              <input type="text" id="instructor-last-name" name="lastName" class="form-input" maxlength="50"
+                     value="<%= form.lastName || '' %>">
+            </div>
+          </div>
+          <small class="booking-form-hint">Imię i nazwisko są potrzebne tylko dla konta, które ich jeszcze nie ma; istniejące dane profilu się nie zmieniają. Imię jest wyświetlane przy zajęciach.</small>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary">Dodaj instruktora →</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h2>Instruktorzy (<%= instructors.length %>)</h2>
+
+      <% if (instructors.length === 0) { %>
+        <p style="color:var(--text-muted);">Nie ma jeszcze żadnego instruktora.</p>
+      <% } else { %>
+        <div class="admin-table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Imię i Nazwisko</th>
+                <th>E-mail</th>
+                <th>Akcje</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% instructors.forEach(i => { %>
+                <tr>
+                  <td><strong><%= i.first_name %> <%= i.last_name %></strong></td>
+                  <td><a href="mailto:<%= i.email %>"><%= i.email %></a></td>
+                  <td class="admin-actions">
+                    <form action="/admin/instructors/<%= i.id %>/remove" method="POST" style="display:inline;"
+                          data-confirm="Odebrać rolę instruktora? Konto zostaje, ale traci panel instruktora, a jego zajęcia zachowają tylko imię jako tekst.">
+                      <button type="submit" class="btn btn--danger btn--xs">✕ Odbierz rolę</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+  </main>
+</div>
+
+<script src="/js/main.js"></script>
+</body>
+</html>
