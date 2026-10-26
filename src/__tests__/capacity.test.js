@@ -161,6 +161,36 @@ describe('waiting list', () => {
     expect(sendWaitingListPromotedEmail).not.toHaveBeenCalled();
   });
 
+  test('skips and drops a person on the list who already has a booking, and promotes the next one', async () => {
+    const classId = makeClass({ maxSpots: 2, waitingListEnabled: true });
+    const leaving = makeUser();
+    const bookedAndWaiting = makeUser();
+    const next = makeUser('Celina');
+    BookingModel.book(leaving.id, classId, [adult(1, true)]);
+    BookingModel.book(bookedAndWaiting.id, classId, [adult(2, true)]);
+    // An entry left over from before a booking took people off the list.
+    WaitingListModel.add(bookedAndWaiting.id, classId);
+    WaitingListModel.add(next.id, classId);
+
+    BookingModel.cancelByUser(leaving.id, classId);
+    await checkAndPromoteWaitingList(classId);
+
+    expect(BookingModel.findByUserAndClass(next.id, classId)).toBeDefined();
+    expect(WaitingListModel.countByClass(classId)).toBe(0);
+    expect(sendWaitingListPromotedEmail).toHaveBeenCalledTimes(1);
+    expect(sendWaitingListPromotedEmail.mock.calls[0][0]).toBe(next.email);
+  });
+
+  test('booking a class takes the person off its waiting list', () => {
+    const classId = makeClass({ maxSpots: 1, waitingListEnabled: true });
+    const u = makeUser();
+    WaitingListModel.add(u.id, classId);
+
+    BookingModel.book(u.id, classId, [adult(1, true)]);
+
+    expect(WaitingListModel.findByUserAndClass(u.id, classId)).toBeUndefined();
+  });
+
   test('keeps the order of the list when two people joined in the same second', () => {
     const classId = makeClass({ maxSpots: 1, waitingListEnabled: true });
     const first = makeUser();
