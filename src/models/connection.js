@@ -10,6 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const { runMigrations } = require('../migrations/runner');
 const { hashIp, ipHashKey, isHashedIp } = require('../utils/ipHash');
+const { localDateTime } = require('../utils/localTime');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/climbing-booking.db');
 
@@ -30,8 +31,7 @@ function getMondayStr() {
   const monday = new Date(now);
   monday.setDate(now.getDate() - (dayOfWeek - 1));
   monday.setHours(0, 0, 0, 0);
-  const tzOff = monday.getTimezoneOffset() * 60000;
-  return new Date(monday.getTime() - tzOff).toISOString().slice(0, 19).replace('T', ' ');
+  return localDateTime(monday);
 }
 
 /**
