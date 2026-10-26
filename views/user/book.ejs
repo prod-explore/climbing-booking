@@ -11,8 +11,7 @@
             , year: 'numeric' , month: 'long' , day: 'numeric' }); const endDate=new Date(date.getTime() +
             (classData.duration_min * 60000)); const endTimeStr=endDate.toLocaleTimeString('pl-PL', { hour: '2-digit' ,
             minute: '2-digit' }); const timeStr=date.toLocaleTimeString('pl-PL', { hour: '2-digit' , minute: '2-digit'
-            }); const isChildUser=user.age_category==='child' ; const
-            isDualClass=classData.class_type==='adult_and_child' ; %>
+            }); const isDualClass=classData.class_type==='adult_and_child' ; %>
 
             <div class="class-info-card">
               <div class="class-info-header">
@@ -137,85 +136,53 @@
                     <% } else { %>
                       <div class="booking-form-card">
 
-                        <% if (isChildUser) { %>
-                          <h2>Potwierdź zapis</h2>
-                          <p class="booking-form-hint">
-                            Zapisujesz się jako uczestnik w grupie dziecięcej.
-                          </p>
-                          <form action="/book/<%= classData.id %>" method="POST" id="bookingForm">
-                            <div class="participant-block participant-block--main">
-                              <div class="participant-block-header">
-                                <span class="participant-number">👦 Ty</span>
-                              </div>
-                              <div class="participant-main-info">
-                                <span class="participant-name-badge">
-                                  <%= user.first_name %>
-                                    <%= user.last_name %>
-                                </span>
-                                <span class="participant-email">
-                                  <%= user.email %>
-                                </span>
-                              </div>
+                        <h2>Zapisz uczestników</h2>
+                        <p class="booking-form-hint">
+                          Możesz zapisać siebie i inne osoby w jednym kroku.
+                          Podaj wiek każdej dopisywanej osoby.
+                        </p>
+
+                        <form action="/book/<%= classData.id %>" method="POST" id="bookingForm">
+
+                          <div class="participant-block participant-block--main">
+                            <div class="participant-block-header">
+                              <span class="participant-number">Osoba 1 (Ty) — 🧑 Dorosły</span>
+                              <input type="hidden" name="includeSelf" value="true">
                             </div>
+                            <div class="participant-main-info">
+                              <span class="participant-name-badge">
+                                <%= user.first_name %>
+                                  <%= user.last_name %>
+                              </span>
+                              <span class="participant-email">
+                                <%= user.email %>
+                              </span>
+                            </div>
+                          </div>
 
+                          <div id="extraParticipants">
+                            <%# Filled by the script at the end of the page ("+ Dodaj kolejną osobę"). %>
+                          </div>
 
-                            <button type="submit" class="btn btn--primary btn--full btn--lg">
-                              Potwierdź zapis →
-                            </button>
-                            <p class="booking-terms">
-                              Zapisujesz się na listę dzieci. Możesz odwołać zapis do 2h przed zajęciami.
-                            </p>
-                          </form>
+                          <button type="button" class="btn btn--outline btn--sm" id="addPersonBtn">
+                            + Dodaj kolejną osobę
+                          </button>
 
-                          <% } else { %>
-                            <h2>Zapisz uczestników</h2>
-                            <p class="booking-form-hint">
-                              Możesz zapisać siebie i inne osoby w jednym kroku.
-                              Podaj wiek każdej dopisywanej osoby.
-                            </p>
+                          <div class="booking-summary" id="bookingSummary">
+                            <div class="booking-summary-inner">
+                              <span>Zapisujesz: <strong id="participantCount">1</strong> osob(ę/y)</span>
+                              <span id="spotsWarning" class="spots-warning" style="display:none;"></span>
+                            </div>
+                          </div>
 
-                            <form action="/book/<%= classData.id %>" method="POST" id="bookingForm">
+                          <button type="submit" class="btn btn--primary btn--full btn--lg">
+                            Potwierdź zapis →
+                          </button>
 
-                              <div class="participant-block participant-block--main">
-                                <div class="participant-block-header">
-                                  <span class="participant-number">Osoba 1 (Ty) — 🧑 Dorosły</span>
-                                  <input type="hidden" name="includeSelf" value="true">
-                                </div>
-                                <div class="participant-main-info">
-                                  <span class="participant-name-badge">
-                                    <%= user.first_name %>
-                                      <%= user.last_name %>
-                                  </span>
-                                  <span class="participant-email">
-                                    <%= user.email %>
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div id="extraParticipants">
-                                <%# Filled by the script at the end of the page ("+ Dodaj kolejną osobę"). %>
-                              </div>
-
-                              <button type="button" class="btn btn--outline btn--sm" id="addPersonBtn">
-                                + Dodaj kolejną osobę
-                              </button>
-
-                              <div class="booking-summary" id="bookingSummary">
-                                <div class="booking-summary-inner">
-                                  <span>Zapisujesz: <strong id="participantCount">1</strong> osob(ę/y)</span>
-                                  <span id="spotsWarning" class="spots-warning" style="display:none;"></span>
-                                </div>
-                              </div>
-
-                              <button type="submit" class="btn btn--primary btn--full btn--lg">
-                                Potwierdź zapis →
-                              </button>
-
-                              <p class="booking-terms">
-                                Możesz odwołać zapis do 2h przed zajęciami.
-                              </p>
-                            </form>
-                            <% } %>
+                          <p class="booking-terms">
+                            Możesz odwołać zapis do 2h przed zajęciami.
+                          </p>
+                        </form>
                       </div>
                       <% } %>
                         <% } %>
