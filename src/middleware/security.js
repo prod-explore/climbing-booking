@@ -7,13 +7,44 @@
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
+/** "1 minutę", "3 minuty", "15 minut": the Polish plural after "za". */
+function minutesPl(n) {
+  if (n === 1) return '1 minutę';
+  const tens = n % 100, units = n % 10;
+  return `${n} ${units >= 2 && units <= 4 && (tens < 12 || tens > 14) ? 'minuty' : 'minut'}`;
+}
+
+/** Whether the client asked for JSON (a JSON body, or JSON preferred over HTML in Accept). */
+function wantsJson(req) {
+  return Boolean(req.is('application/json')) || req.accepts(['html', 'json']) === 'json';
+}
+
+/**
+ * The answer of a limiter that has run out. A JSON client gets `message` as JSON; a browser gets the error page in
+ * the site layout, saying when to try again from the Retry-After header the limiter has just set (in seconds).
+ */
+function limitReached(req, res, _next, options) {
+  res.status(options.statusCode);
+  if (wantsJson(req)) return res.json(options.message);
+
+  const retryAfter = Number(res.getHeader('Retry-After'));
+  const seconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : options.windowMs / 1000;
+  return res.render('user/error', {
+    title: 'Zbyt wiele prób',
+    code: options.statusCode,
+    message: `Zbyt wiele prób. Spróbuj ponownie za ${minutesPl(Math.ceil(seconds / 60))}.`,
+    user: req.user
+  });
+}
+
 /** Every request after the health check, per client IP; tunable through RATE_LIMIT_WINDOW_MS / _MAX_REQUESTS. */
 const generalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Zbyt wiele żądań. Spróbuj ponownie za kilka minut.' }
+  message: { error: 'Zbyt wiele żądań. Spróbuj ponownie za kilka minut.' },
+  handler: limitReached
 });
 
 /** Login-link requests per IP and hour: each one sends an e-mail, so this caps the mail one client can trigger. */
@@ -22,7 +53,8 @@ const magicLinkLimiter = rateLimit({
   max: parseInt(process.env.MAGIC_LINK_RATE_LIMIT_MAX) || 5,
   message: { error: 'Wysłano już kilka linków. Sprawdź skrzynkę lub spróbuj za godzinę.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  handler: limitReached
 });
 
 /**
@@ -63,14 +95,16 @@ const emailRequestLimiter = createWindowLimiter({
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 30,
-  message: { error: 'Za dużo żądań API. Poczekaj chwilę.' }
+  message: { error: 'Za dużo żądań API. Poczekaj chwilę.' },
+  handler: limitReached
 });
 
 /** Admin login-link requests per IP. */
 const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: 'Zbyt wiele prób logowania. Spróbuj za 15 minut.' }
+  message: { error: 'Zbyt wiele prób logowania. Spróbuj za 15 minut.' },
+  handler: limitReached
 });
 
 /**
@@ -119,6 +153,7 @@ function sanitizeBody(req, res, next) {
 }
 
 module.exports = {
+  minutesPl,
   createWindowLimiter,
   emailRequestLimiter,
   generalLimiter,

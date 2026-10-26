@@ -15,3 +15,11 @@ describe('security middleware', () => {
     }
   });
 });
+
+describe('minutesPl', () => {
+  test('uses the Polish plural forms after "za"', () => {
+    expect([1, 2, 4, 5, 12, 14, 15, 22, 25, 60].map(require('../middleware/security').minutesPl)).toEqual([
+      '1 minutę', '2 minuty', '4 minuty', '5 minut', '12 minut', '14 minut', '15 minut', '22 minuty', '25 minut', '60 minut'
+    ]);
+  });
+});

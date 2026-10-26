@@ -35,7 +35,7 @@ the variables with comments. `docker-compose.yml` always sets `NODE_ENV=producti
 | `CONTACT_EMAIL` | `contact@example.com` | Shown in the footer, the privacy policy and the e-mails. |
 | `EMAIL_REPLY` | `CONTACT_EMAIL` | Reply-To of the e-mails. |
 | `DB_PATH` | `data/climbing-booking.db` | Set by `docker-compose.yml` in the container. |
-| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS` | `900000`, `100` | Every request per client IP except `/healthz`, static files included. |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS` | `900000`, `100` | Every request per client IP except `/healthz` and static files. Over any limit, a browser gets an error page that says in how many minutes to try again (from `Retry-After`); a JSON client gets `{ "error": ... }`. |
 | `MAGIC_LINK_RATE_LIMIT_MAX` | `5` | Login-link requests per IP and hour. |
 | `MAGIC_LINK_EMAIL_LIMIT_MAX` | `3` | Login-link requests per address and hour, from any IP. |
 

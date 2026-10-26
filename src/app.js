@@ -75,8 +75,9 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 app.use(requireSameOrigin);
 app.use(sanitizeBody);
-app.use(generalLimiter);
 
+// Static files are served before the general limiter and do not count towards it: a page view would otherwise use up
+// several requests of the quota for its stylesheet, scripts and images.
 app.use(express.static(path.join(__dirname, '../public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0
 }));
@@ -97,6 +98,9 @@ app.use((req, res, next) => {
 });
 
 app.use(loadUser);
+
+// After the page locals and the user are set, so that its "too many requests" page is rendered in the site layout.
+app.use(generalLimiter);
 
 app.use('/', authRoutes);
 app.use('/', userRoutes);
