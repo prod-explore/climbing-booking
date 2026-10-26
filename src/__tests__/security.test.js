@@ -1,6 +1,7 @@
 /**
- * security.test.js — the rate limiters must construct without validation errors. express-rate-limit 8 rejects a custom
- * keyGenerator that uses req.ip without the IPv6 helper, which would stop the application at startup.
+ * security.test.js — the rate limiters construct without validation errors (express-rate-limit rejects, for example, a
+ * custom keyGenerator that uses req.ip without its IPv6 helper, which would stop the application at startup), and the
+ * Polish plural of the minutes on the "too many requests" page.
  */
 
 'use strict';

@@ -42,8 +42,8 @@ startupAdmins.forEach(ensureAdminAccount);
 // users.is_admin mirrors the list for queries and for anyone reading the database; it grants nothing by itself.
 UserModel.syncAdminFlags(startupAdmins);
 
-// Instructors are managed at /admin/instructors and stored only as users.is_instructor. INSTRUCTORS used to create
-// them at every start, which would bring back anyone removed in the panel, so it is no longer read.
+// Instructors are managed at /admin/instructors and stored only as users.is_instructor. INSTRUCTORS is not read, only
+// warned about when set: creating its accounts at every start would bring back anyone removed in the panel.
 if (process.env.INSTRUCTORS) {
   console.warn('INSTRUCTORS is no longer read: manage instructors at /admin/instructors. Existing instructors are kept.');
 }
@@ -445,7 +445,8 @@ router.post('/admin/instructors', requireAdmin, (req, res) => {
   if (existing?.is_instructor) {
     return res.redirect('/admin/instructors?success=' + encodeURIComponent(`${email} jest już instruktorem.`));
   }
-  // The first name is what classes show for their instructor, so an account without a name gets one here.
+  // Classes show their instructor by first name, so an account without both names must be given them here (only the
+  // missing ones are stored).
   if (!(existing?.first_name && existing?.last_name) && !(form.firstName && form.lastName)) {
     return refuse('Podaj imię i nazwisko: to konto nie ma ich jeszcze w profilu.');
   }

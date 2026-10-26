@@ -56,8 +56,9 @@ function fundingNote() {
 }
 
 /**
- * Makes a value safe as HTML text or as a quoted attribute value. Every value interpolated into the HTML e-mails goes
- * through it: names and class names are typed by people.
+ * Makes a value safe as HTML text or as a quoted attribute value. Every value from outside a template (names, class
+ * names, dates, links, the contact address, the funding note) goes through it before it is interpolated into the HTML
+ * e-mails: names and class names are typed by people.
  */
 function escapeHtml(value) {
   return String(value)

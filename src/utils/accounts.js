@@ -1,5 +1,5 @@
 /**
- * accounts.js — the account lists that come from the environment, and the administrator role they grant.
+ * accounts.js — the administrator list that comes from the environment, and the role it grants.
  *
  * Personal e-mail addresses are configuration, not source code: they are read from ADMIN_EMAILS and never committed.
  */
