@@ -79,8 +79,7 @@
                   </span>
                 </td>
                 <td>
-                  <% const age = p.child_age || p.age; %>
-                  <%= age != null ? age + ' lat' : '—' %>
+                  <%= p.age != null ? p.age + ' lat' : '—' %>
                 </td>
                 <td class="print-hide"><%= p.is_main ? '★ Sam/a' : 'Dołączony' %></td>
                 <td class="no-print"><a href="mailto:<%= p.bookerEmail %>"><%= p.bookerEmail %></a></td>
@@ -141,8 +140,7 @@ document.getElementById('copyListBtn')?.addEventListener('click', () => {
     text += "Brak zapisanych uczestników.";
   } else {
     participants.forEach((p, idx) => {
-      const age = p.child_age || p.age;
-      const ageStr = age ? ` (${age} lat)` : '';
+      const ageStr = p.age ? ` (${p.age} lat)` : '';
       const cat = p.age_category === 'child' ? 'Dziecko' : 'Dorosły';
       text += `${idx + 1}. ${p.first_name} ${p.last_name} - ${cat}${ageStr}\n`;
     });

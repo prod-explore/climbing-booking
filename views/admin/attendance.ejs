@@ -96,8 +96,7 @@
                 </span>
               </td>
               <td>
-                <% const age = p.child_age || p.age; %>
-                <%= age != null ? age + ' lat' : '—' %>
+                <%= p.age != null ? p.age + ' lat' : '—' %>
               </td>
               <td class="print-hide"><%= p.is_main ? '★ Sam/a' : 'Dołączony' %></td>
               <td class="print-hide"><%= new Date(p.bookedAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
@@ -131,8 +130,7 @@
             <% b.participants.forEach(p => { %>
               <span class="participant-chip">
                 <%= p.first_name %> <%= p.last_name %><% if (p.is_main) { %> ★<% } %>
-                <% const age = p.child_age || p.age; %>
-                <% if (age != null) { %> (<%= age %> lat)<% } %>
+                <% if (p.age != null) { %> (<%= p.age %> lat)<% } %>
                 <form action="/admin/classes/<%= classData.id %>/participants/<%= p.id %>/remove" method="POST" style="display:inline;" data-confirm="Czy na pewno chcesz wypisać tę osobę? Zostanie wysłane powiadomienie e-mail.">
                   <button type="submit" style="background:none;border:none;color:var(--danger);cursor:pointer;margin-left:4px;padding:0;font-size:0.9em;" title="Wypisz uczestnika">✕</button>
                 </form>
@@ -203,8 +201,7 @@ document.getElementById('copyListBtn')?.addEventListener('click', () => {
     text += "Brak zapisanych uczestników.";
   } else {
     participants.forEach((p, idx) => {
-      const age = p.child_age || p.age;
-      const ageStr = age ? ` (${age} lat)` : '';
+      const ageStr = p.age ? ` (${p.age} lat)` : '';
       const cat = p.age_category === 'child' ? 'Dziecko' : 'Dorosły';
       text += `${idx + 1}. ${p.first_name} ${p.last_name} - ${cat}${ageStr}\n`;
     });
