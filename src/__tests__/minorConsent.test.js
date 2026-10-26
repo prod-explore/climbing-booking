@@ -19,7 +19,7 @@ jest.mock('../services/emailService', () => ({
 
 const request = require('supertest');
 const app = require('../app');
-const { getDb, UserModel, MagicTokenModel, ClassModel, BookingModel } = require('../models/database');
+const { UserModel, MagicTokenModel, ClassModel, BookingModel } = require('../models/database');
 
 let seq = 0;
 async function loginAs(email) {
@@ -62,8 +62,8 @@ async function approve(userId) {
 
 test('an unverified 17-year-old cannot book; after the admin approves the consent they can', async () => {
   const minor = await seventeenYearOld();
-  const classId = makeClass();
-  expect(UserModel.findById(minor.id)).toMatchObject({ is_verified: 0, age_category: 'adult' });
+  const classId = makeClass('adult_and_child');
+  expect(UserModel.findById(minor.id)).toMatchObject({ is_verified: 0 });
 
   const page = await minor.agent.get(`/book/${classId}`);
   expect(page.headers.location).toMatch(/^\/dashboard\?error=/);
@@ -77,29 +77,9 @@ test('an unverified 17-year-old cannot book; after the admin approves the consen
 
   const booked = await minor.agent.post(`/book/${classId}`).type('form').send({});
   expect(booked.headers.location).toMatch(/^\/dashboard\?success=/);
-  expect(BookingModel.getSpotCounts(classId).adult_taken).toBe(1);
-});
+  // A family class: the 17-year-old takes an adult place, not a child one.
+  expect(BookingModel.getSpotCounts(classId)).toEqual({ adult_taken: 1, child_taken: 0 });
 
-describe('an approved account still marked age_category = child (left from earlier versions)', () => {
-  async function legacyChildAccount() {
-    const minor = await seventeenYearOld();
-    getDb().prepare("UPDATE users SET age_category = 'child' WHERE id = ?").run(minor.id);
-    await approve(minor.id);
-    return minor;
-  }
-
-  test('gets the normal booking form, not a children-group form', async () => {
-    const minor = await legacyChildAccount();
-    const page = await minor.agent.get(`/book/${makeClass('adult_and_child')}`);
-    expect(page.status).toBe(200);
-    expect(page.text).toContain('Osoba 1 (Ty)');
-    expect(page.text).not.toContain('grupie dziecięcej');
-  });
-
-  test('takes an adult place in a family class', async () => {
-    const minor = await legacyChildAccount();
-    const classId = makeClass('adult_and_child');
-    await minor.agent.post(`/book/${classId}`).type('form').send({});
-    expect(BookingModel.getSpotCounts(classId)).toEqual({ adult_taken: 1, child_taken: 0 });
-  });
+  const form = await minor.agent.get(`/book/${makeClass('adult_and_child')}`);
+  expect(form.text).toContain('Osoba 1 (Ty)');
 });

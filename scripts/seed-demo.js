@@ -49,7 +49,7 @@ function seedDemo() {
   const instructorIds = {};
   for (const [email, firstName] of SAMPLE_INSTRUCTORS) {
     const { user } = UserModel.getOrCreate(email);
-    getDb().prepare("UPDATE users SET first_name = ?, last_name = 'Instruktor', is_instructor = 1, is_verified = 1, age_category = 'adult' WHERE id = ?")
+    getDb().prepare("UPDATE users SET first_name = ?, last_name = 'Instruktor', is_instructor = 1, is_verified = 1 WHERE id = ?")
       .run(firstName, user.id);
     instructorIds[firstName] = user.id;
   }
@@ -74,7 +74,7 @@ function seedDemo() {
 
   SAMPLE_PEOPLE.forEach(([email, first, last], i) => {
     const { user } = UserModel.getOrCreate(email);
-    UserModel.updateProfile(user.id, first, last, 'adult', '1995-04-12', false);
+    UserModel.updateProfile(user.id, first, last, '1995-04-12', false);
     BookingModel.book(user.id, classIds[i % classIds.length], [{ firstName: first, lastName: last, ageCategory: 'adult', isMain: true, age: 30 }]);
   });
 

@@ -213,15 +213,12 @@ router.post('/profile/complete', requireAuth, (req, res) => {
     });
   }
 
-  // Everyone who can hold an account (16 and over) takes a place from the adult pool; younger children are booked
-  // as extra participants by a parent.
-  const ageCategory = 'adult';
-
+  // Everyone who can hold an account (16 and over) takes a place from the adult pool when booking; younger children
+  // are booked as extra participants by a parent.
   UserModel.updateProfile(
     req.user.id,
     firstName.trim().slice(0, 50),
     lastName.trim().slice(0, 50),
-    ageCategory,
     birthDate,
     marketing_accepted === 'on'
   );

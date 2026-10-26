@@ -18,13 +18,13 @@ const UserModel = {
     ).run(email, firstName, lastName),
 
   /** Adults (18 and over) are verified at once; a younger user stays unverified until an admin confirms consent. */
-  updateProfile: (id, firstName, lastName, ageCategory, birthDate, marketingConsent) => {
+  updateProfile: (id, firstName, lastName, birthDate, marketingConsent) => {
     const age = calculateAge(birthDate);
     const isVerified = (age !== null && age >= 18) ? 1 : 0;
     const marketingVal = marketingConsent ? 1 : 0;
     getDb().prepare(
-      'UPDATE users SET first_name = ?, last_name = ?, age_category = ?, birth_date = ?, is_verified = ?, marketing_consent = ? WHERE id = ?'
-    ).run(firstName, lastName, ageCategory, birthDate, isVerified, marketingVal, id);
+      'UPDATE users SET first_name = ?, last_name = ?, birth_date = ?, is_verified = ?, marketing_consent = ? WHERE id = ?'
+    ).run(firstName, lastName, birthDate, isVerified, marketingVal, id);
   },
 
   updateLastLogin: (id) =>
@@ -77,11 +77,11 @@ const UserModel = {
 
   /**
    * Gives the account the instructor role. A name it lacks is filled from `firstName`/`lastName`; like the
-   * administrators, an instructor is verified and counts as an adult.
+   * administrators, an instructor is verified (and, as every account holder, books an adult place).
    */
   grantInstructor: (id, { firstName = null, lastName = null } = {}) =>
     getDb().prepare(`
-      UPDATE users SET is_instructor = 1, is_verified = 1, age_category = COALESCE(age_category, 'adult'),
+      UPDATE users SET is_instructor = 1, is_verified = 1,
         first_name = COALESCE(first_name, ?), last_name = COALESCE(last_name, ?)
       WHERE id = ?
     `).run(firstName || null, lastName || null, id),

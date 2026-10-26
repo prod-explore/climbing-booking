@@ -88,11 +88,15 @@ function requireAuth(req, res, next) {
   next();
 }
 
-/** Requires a completed profile (first name, last name, age category); otherwise sends the user to complete it. */
+/**
+ * Requires a completed profile; otherwise sends the user to complete it. A participant's names are set only by the
+ * profile form (with the birth date and the accepted terms); administrator and instructor accounts get theirs when they
+ * are created.
+ */
 function requireProfile(req, res, next) {
   if (!req.user) return requireAuth(req, res, next);
 
-  if (!req.user.first_name || !req.user.last_name || !req.user.age_category) {
+  if (!req.user.first_name || !req.user.last_name) {
     return res.redirect('/profile/complete?next=' + encodeURIComponent(req.originalUrl));
   }
   next();
