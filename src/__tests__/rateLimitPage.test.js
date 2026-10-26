@@ -66,6 +66,7 @@ test('the general limit shows the page too, with the signed-in user\'s navigatio
   const res = await untilLimited(() => agent.get('/calendar').set('X-Forwarded-For', '198.51.100.3').set('Accept', BROWSER_ACCEPT), 21);
 
   expect(res.headers['content-type']).toMatch(/^text\/html/);
-  expect(res.text).toContain('Spróbuj ponownie za 15 minut.');
+  expect(res.text).toContain('Zbyt wiele żądań. Spróbuj ponownie za 15 minut.');
+  expect(res.text).not.toContain('Zbyt wiele prób');
   expect(res.text).toContain('Wyloguj');
 });

@@ -20,22 +20,29 @@ function wantsJson(req) {
 }
 
 /**
- * The answer of a limiter that has run out. A JSON client gets `message` as JSON; a browser gets the error page in
- * the site layout, saying when to try again from the Retry-After header the limiter has just set (in seconds).
+ * The handler of a limiter that has run out. A JSON client gets `message` as JSON; a browser gets the error page in
+ * the site layout, headed `heading` and saying when to try again from the Retry-After header the limiter has just set
+ * (in seconds).
  */
-function limitReached(req, res, _next, options) {
-  res.status(options.statusCode);
-  if (wantsJson(req)) return res.json(options.message);
+function limitReached(heading) {
+  return (req, res, _next, options) => {
+    res.status(options.statusCode);
+    if (wantsJson(req)) return res.json(options.message);
 
-  const retryAfter = Number(res.getHeader('Retry-After'));
-  const seconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : options.windowMs / 1000;
-  return res.render('user/error', {
-    title: 'Zbyt wiele prób',
-    code: options.statusCode,
-    message: `Zbyt wiele prób. Spróbuj ponownie za ${minutesPl(Math.ceil(seconds / 60))}.`,
-    user: req.user
-  });
+    const retryAfter = Number(res.getHeader('Retry-After'));
+    const seconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : options.windowMs / 1000;
+    return res.render('user/error', {
+      title: heading,
+      code: options.statusCode,
+      message: `${heading}. Spróbuj ponownie za ${minutesPl(Math.ceil(seconds / 60))}.`,
+      user: req.user
+    });
+  };
 }
+
+// Page views count as requests; the login and booking forms as attempts.
+const TOO_MANY_REQUESTS = 'Zbyt wiele żądań';
+const TOO_MANY_ATTEMPTS = 'Zbyt wiele prób';
 
 /**
  * Every request except the health check and static files (both served before it, see app.js), per client IP;
@@ -47,7 +54,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zbyt wiele żądań. Spróbuj ponownie za kilka minut.' },
-  handler: limitReached
+  handler: limitReached(TOO_MANY_REQUESTS)
 });
 
 /** Login-link requests per IP and hour: each one sends an e-mail, so this caps the mail one client can trigger. */
@@ -57,7 +64,7 @@ const magicLinkLimiter = rateLimit({
   message: { error: 'Wysłano już kilka linków. Sprawdź skrzynkę lub spróbuj za godzinę.' },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: limitReached
+  handler: limitReached(TOO_MANY_ATTEMPTS)
 });
 
 /**
@@ -99,7 +106,7 @@ const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 30,
   message: { error: 'Za dużo żądań API. Poczekaj chwilę.' },
-  handler: limitReached
+  handler: limitReached(TOO_MANY_ATTEMPTS)
 });
 
 /** Admin login-link requests per IP. */
@@ -107,7 +114,7 @@ const adminLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Zbyt wiele prób logowania. Spróbuj za 15 minut.' },
-  handler: limitReached
+  handler: limitReached(TOO_MANY_ATTEMPTS)
 });
 
 /**
