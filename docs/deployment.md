@@ -87,7 +87,8 @@ location / {
 }
 ```
 
-[[Q6: Should this section link to the reverse-proxy setup you use (your nginx reverse-proxy repository), and is it public?]]
+In production this runs behind [nginx-reverse-proxy](https://github.com/prod-explore/nginx-reverse-proxy),
+which follows the same pattern for several apps on one host.
 
 ## First start
 
