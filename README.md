@@ -11,7 +11,8 @@ One Node.js process (Express 5, server-rendered EJS) with a SQLite database, shi
 arm64. The interface and the e-mails are in Polish.
 
 In production since April 2026 as the booking system of
-[Fantastyczne Wspinanie](https://wspinanie.ue.futumore.pl), a climbing school in Bytom.
+[Fantastyczne Wspinanie](https://wspinanie.ue.futumore.pl), a climbing school in Bytom: 670 registered accounts and
+750+ bookings as of October 2026.
 
 ![The public weekly calendar with the sample classes from npm run seed](docs/images/calendar.png)
 
