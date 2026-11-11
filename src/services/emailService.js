@@ -6,6 +6,8 @@
  * Reply-To set to the contact address, a plain-text part next to the HTML, no images or tracking pixels, and
  * transactional headers (plus List-Unsubscribe on the login link).
  *
+ * In demo mode (DEMO_MODE=true) nothing is sent at all: the messages are only logged.
+ *
  * Each send function resolves with Resend's response and throws when Resend rejects the message.
  */
 
@@ -13,6 +15,7 @@ const { Resend } = require('resend');
 const { contactEmail } = require('../utils/contact');
 const { appUrl } = require('../utils/appUrl');
 const { SiteSettingsModel } = require('../models/database');
+const { isDemoMode } = require('../utils/demoMode');
 
 let resend;
 
@@ -39,6 +42,16 @@ const consoleMailer = {
       console.log(`\n✉️  [RESEND_API_KEY not set: printed, not sent] To: ${message.to.join(', ')}\n` +
         `    Subject: ${message.subject}\n\n${message.text}\n`);
       return { data: { id: 'console' }, error: null };
+    }
+  }
+};
+
+// The demo instance never sends mail, whatever RESEND_API_KEY is: its accounts are fixed and its visitors are strangers.
+const demoMailer = {
+  emails: {
+    async send(message) {
+      console.log(`[demo] e-mail not sent. To: ${message.to.join(', ')}, subject: ${message.subject}`);
+      return { data: { id: 'demo' }, error: null };
     }
   }
 };
@@ -87,6 +100,7 @@ function fundingNoteText() {
 }
 
 function getMailer() {
+  if (isDemoMode()) return demoMailer;
   return sendsToConsole() ? consoleMailer : getResend();
 }
 
@@ -209,6 +223,10 @@ async function sendMagicLink(email, magicLink, isNewUser = false) {
 }
 
 async function initEmailService() {
+  if (isDemoMode()) {
+    console.log('[demo] E-mail is switched off: messages are logged, never sent.');
+    return;
+  }
   if (sendsToConsole()) {
     console.warn('⚠️  RESEND_API_KEY is not set: e-mails are printed to the console (development only).');
     return;

@@ -1,0 +1,52 @@
+# The public demo instance (DEMO_MODE=true, see the README): the same image as production, run next to it as its own
+# Compose project, with its own container, database volume and settings. Nothing here touches the production service.
+#
+#   printf 'APP_URL=https://demo.example.com\nJWT_SECRET=%s\n' "$(openssl rand -hex 32)" > .env.demo
+#   docker compose -p climbing-booking-demo -f docker-compose.demo.yml up -d
+#
+# The reverse proxy reaches it at climbing-booking-demo:3000 over the network it already shares with production.
+# Where production does not run on the same host, create that network first:
+#   docker network create climbing-booking-network
+services:
+
+  app:
+    image: ghcr.io/prod-explore/climbing-booking:${CLIMBING_BOOKING_IMAGE_TAG:-latest}
+    container_name: climbing-booking-demo
+    restart: unless-stopped
+
+    env_file: .env.demo
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_PATH: /app/data/climbing-booking.db
+      DEMO_MODE: "true"
+      TZ: ${TZ:-Europe/Warsaw}
+
+    # The database is rebuilt from the sample data at every start and every night, so the volume holds nothing
+    # worth backing up; it only gives the container a writable data directory.
+    volumes:
+      - climbing_booking_demo_data:/app/data
+
+    networks:
+      - climbing-booking-network
+
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  climbing-booking-network:
+    external: true
+
+volumes:
+  climbing_booking_demo_data:
+    name: climbing_booking_demo_data
+    driver: local

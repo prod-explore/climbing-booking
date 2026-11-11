@@ -1,5 +1,6 @@
 node_modules/
 .env
+.env.demo
 data/
 *.db
 npm-debug.log*

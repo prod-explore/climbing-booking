@@ -23,6 +23,15 @@
         Wyślemy jednorazowy link logowania na adres administratora.
       </p>
 
+      <% if (demoMode) { %>
+        <div class="alert alert--info demo-login-note">
+          <div>
+            <strong>Wersja demonstracyjna:</strong> logowanie linkiem e-mail jest tu wyłączone. Wejdź jednym kliknięciem:
+            <%- include('../partials/demo-roles') %>
+          </div>
+        </div>
+      <% } %>
+
       <% if (typeof error !== 'undefined' && error) { %>
         <div class="alert alert--error"><%= error %></div>
       <% } %>

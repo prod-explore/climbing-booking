@@ -5,6 +5,7 @@
  */
 
 const validator = require('validator');
+const { DEMO_ACCOUNTS, isDemoMode } = require('./demoMode');
 
 /**
  * "a@x.pl, b@y.pl" -> ['a@x.pl', 'b@y.pl'] (trimmed, lower-cased, invalid entries dropped).
@@ -21,9 +22,13 @@ function normalizedEmail(email) {
   return validator.normalizeEmail(String(email || '')) || String(email || '').toLowerCase();
 }
 
-/** The administrator addresses from ADMIN_EMAILS (ADMIN_EMAIL, singular, is the older name), normalised. */
+/**
+ * The administrator addresses from ADMIN_EMAILS (ADMIN_EMAIL, singular, is the older name), normalised. In demo mode
+ * the demo administrator's address is on the list as well, so the operator does not have to add it.
+ */
 function adminEmails(env = process.env) {
-  return parseEmailList(env.ADMIN_EMAILS || env.ADMIN_EMAIL).map(normalizedEmail);
+  const listed = parseEmailList(env.ADMIN_EMAILS || env.ADMIN_EMAIL).map(normalizedEmail);
+  return isDemoMode(env) ? [...new Set([...listed, DEMO_ACCOUNTS.admin])] : listed;
 }
 
 /**

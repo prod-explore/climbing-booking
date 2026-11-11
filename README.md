@@ -35,7 +35,7 @@ npm start
 
 `npm run seed` adds five sample classes for next week, three instructors, three bookings and sample venue details to
 an empty local database (`data/climbing-booking.db`). It refuses to run on a database that already has classes, or
-with `NODE_ENV=production`. Then:
+with `NODE_ENV=production` (a [demo instance](#demo-instance) is the exception). Then:
 
 - Open <http://localhost:3000/calendar?week=1> to see the week above.
 - Sign in at <http://localhost:3000/login> with any address. Without `RESEND_API_KEY` the e-mail is not sent: the
@@ -147,6 +147,27 @@ network and forwards to `climbing-booking-app:3000`. It must pass the browser's 
 same-origin check refuses every form. The configuration reference, the proxy settings, backups and the first-run
 steps are in [docs/deployment.md](docs/deployment.md).
 
+## Demo instance
+
+`DEMO_MODE=true` turns an instance into a public showcase that needs no mailbox: a banner on every page lets a
+visitor enter as a participant, an instructor or an administrator with one click (`POST /demo/login`, which sets the
+same session cookie as a login link, so everything behind it is the ordinary code). In this mode:
+
+- No e-mail is sent, whatever `RESEND_API_KEY` is; the login forms say so and point to the buttons.
+- The database is replaced with sample data at every start and every night at 03:00: classes this week and next,
+  bookings, a full class with a waiting list, and a parental consent waiting for approval.
+- The three accounts are fixed `example.com` addresses; the demo administrator needs no entry in `ADMIN_EMAILS`.
+- Every response carries `X-Robots-Tag: noindex, nofollow`.
+
+With `DEMO_MODE` unset none of this exists: the route answers 404, and the reset and the production seed refuse to
+run. `docker-compose.demo.yml` runs a demo next to production as a separate Compose project with its own container
+and volume:
+
+```sh
+printf 'APP_URL=https://demo.example.com\nJWT_SECRET=%s\n' "$(openssl rand -hex 32)" > .env.demo
+docker compose -p climbing-booking-demo -f docker-compose.demo.yml up -d
+```
+
 ## Known limitations
 
 - **`'unsafe-inline'` scripts in the CSP.** Several views still contain inline `<script>` blocks, so the policy
@@ -180,10 +201,10 @@ chosen by hand.
 ```text
 src/
   app.js            configuration checks, middleware order, routers, error pages
-  routes/           auth, participant, admin and instructor pages
+  routes/           auth, participant, admin and instructor pages; the demo sign-in
   middleware/       session and role guards, same-origin check, rate limits and headers
   models/           one file per table; database.js re-exports them
-  services/         e-mail (Resend), waiting-list promotion, attendance lists
+  services/         e-mail (Resend), waiting-list promotion, attendance lists, sample data and the demo reset
   migrations/       numbered SQL files and the runner that applies them
   utils/            small helpers without database access
   __tests__/        Jest suites

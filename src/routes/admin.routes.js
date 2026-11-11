@@ -10,6 +10,7 @@ const express = require('express');
 const router = express.Router();
 const validator = require('validator');
 const { normalizedEmail, adminEmails, isAdminEmail } = require('../utils/accounts');
+const { isDemoMode, DEMO_EMAIL_LOGIN_MESSAGE } = require('../utils/demoMode');
 
 const { ClassModel, BookingModel, UserModel, MagicTokenModel, QrScanModel, WaitingListModel, SiteSettingsModel, getDb } = require('../models/database');
 const { requireAdmin, createMagicLink } = require('../middleware/auth');
@@ -58,6 +59,9 @@ router.post('/admin/login', adminLoginLimiter, async (req, res) => {
   const render = (extra) => res.render('admin/login', { title: 'Panel Admina — Logowanie', error: null, success: null, ...extra });
   // The same answer whether or not the address belongs to an administrator: the form does not tell who the admins are.
   const SENT = 'Jeśli to adres administratora, wysłaliśmy na niego link logowania. Sprawdź skrzynkę!';
+
+  // The demo instance sends no e-mail: the administrator enters with the demo button.
+  if (isDemoMode()) return render({ error: DEMO_EMAIL_LOGIN_MESSAGE });
 
   // `website` is a field hidden from people (see auth.routes.js).
   if (website) {

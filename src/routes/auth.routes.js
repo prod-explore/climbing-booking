@@ -14,6 +14,7 @@ const { magicLinkLimiter, emailRequestLimiter } = require('../middleware/securit
 const { calculateAge } = require('../utils/age');
 const { safeNext } = require('../utils/safeNext');
 const { isAdminEmail } = require('../utils/accounts');
+const { isDemoMode, DEMO_EMAIL_LOGIN_MESSAGE } = require('../utils/demoMode');
 
 router.get('/login', (req, res) => {
   const nextUrl = safeNext(req.query.next);
@@ -31,6 +32,11 @@ router.get('/login', (req, res) => {
 router.post('/auth/request', magicLinkLimiter, async (req, res) => {
   const { email, website } = req.body;
   const nextUrl = safeNext(req.body.next);
+
+  // The demo instance sends no e-mail and creates no account from a typed address: visitors use the demo buttons.
+  if (isDemoMode()) {
+    return res.render('user/login', { title: 'Logowanie', next: nextUrl, error: DEMO_EMAIL_LOGIN_MESSAGE, success: null });
+  }
 
   // `website` is a field hidden from people; a bot that fills it in gets the usual success page and no e-mail is sent.
   if (website) {

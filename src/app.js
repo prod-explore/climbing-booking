@@ -23,9 +23,13 @@ const siteSettings = require('./utils/siteSettings');
 const { startupMessage } = require('./utils/startupMessage');
 const { redactUrl } = require('./utils/redactUrl');
 const { assertStrongSecret } = require('./utils/secrets');
+const { isDemoMode } = require('./utils/demoMode');
+const { resetDemoData, startNightlyReset, RESET_HOUR } = require('./services/demoData');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
 const BASE_URL = appUrl();
+// DEMO_MODE=true turns the app into the public demo instance (utils/demoMode.js); a value other than true/false stops the start here.
+const DEMO_MODE = isDemoMode();
 // Optional: the key for hashing QR visitors' IP addresses (utils/ipHash.js). Checked like JWT_SECRET when set.
 assertStrongSecret('IP_HASH_SECRET', process.env.IP_HASH_SECRET);
 
@@ -33,6 +37,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 initDatabase();
+if (DEMO_MODE) {
+  console.log(`[demo] DEMO_MODE is on: sample data, no e-mail is sent, the database is reset now and every night at ${String(RESET_HOUR).padStart(2, '0')}:00.`);
+  resetDemoData();
+}
 initEmailService().catch(err => console.warn('Email init warning:', err.message));
 
 // Required only now: admin.routes creates the ADMIN_EMAILS accounts as it loads, which needs the database to be open.
@@ -40,6 +48,7 @@ const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const adminRoutes = require('./routes/admin.routes');
 const instructorRoutes = require('./routes/instructor.routes');
+const demoRoutes = require('./routes/demo.routes');
 
 // The app runs behind one reverse proxy (docker-compose.yml): trusting one hop of X-Forwarded-For makes req.ip the
 // client's address, which the rate limits and the QR-visit hash use, instead of the proxy's.
@@ -50,6 +59,15 @@ app.locals.contactEmail = contactEmail();
 app.locals.baseUrl = BASE_URL;
 app.locals.canonicalUrl = `${BASE_URL}/`;
 app.locals.site = siteSettings.resolve({});
+app.locals.demoMode = DEMO_MODE;
+
+// A demo instance is not for search engines: its pages are sample data.
+if (DEMO_MODE) {
+  app.use((req, res, next) => {
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    next();
+  });
+}
 
 // Liveness probe: registered before the rate limiter so health checks never use up a client's quota.
 app.get('/healthz', (req, res) => {
@@ -105,6 +123,7 @@ app.use('/', authRoutes);
 app.use('/', userRoutes);
 app.use('/', adminRoutes);
 app.use('/', instructorRoutes);
+if (DEMO_MODE) app.use('/', demoRoutes);
 
 app.use((req, res) => {
   res.status(404).render('user/error', {
@@ -142,6 +161,8 @@ function start() {
     }
   }, 1000 * 60 * 60 * 24);
 
+  const demoReset = DEMO_MODE ? startNightlyReset() : null;
+
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(startupMessage({ port: PORT, url: BASE_URL, env: process.env.NODE_ENV || 'development' }));
   });
@@ -149,6 +170,7 @@ function start() {
   function shutdown(signal) {
     console.log(`\n[${signal}] Zamykanie serwera...`);
     clearInterval(archiveCron);
+    demoReset?.stop();
     server.close(() => {
       console.log('Serwer zamknięty.');
       process.exit(0);

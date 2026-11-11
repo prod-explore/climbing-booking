@@ -119,6 +119,32 @@ h3 { font-size: clamp(1.1rem, 2.5vw, 1.4rem); }
 .alert--info    { background: var(--primary-pale); border: 1px solid var(--border-strong); color: var(--primary); }
 .alert-icon { font-size: 1.2rem; flex-shrink: 0; }
 
+/* --- DEMO INSTANCE (DEMO_MODE=true): the banner on every page and the role buttons --- */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 20px;
+  padding: 10px 16px;
+  background: #fef3c7;
+  border-bottom: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.demo-banner-text { margin: 0; }
+.demo-roles { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; }
+.demo-banner .demo-roles { margin-top: 0; }
+.demo-roles-label { font-weight: 600; }
+.demo-roles .btn { background: #fff; }
+.demo-login-note { text-align: center; }
+@media (max-width: 480px) {
+  .demo-roles .btn { flex: 1 1 auto; }
+  .demo-roles-label { flex-basis: 100%; }
+}
+
 /* --- NAVBAR --- */
 .navbar {
   position: sticky;
