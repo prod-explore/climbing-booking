@@ -10,6 +10,9 @@ there are no passwords. Instructors see the participant lists of their own class
 One Node.js process (Express 5, server-rendered EJS) with a SQLite database, shipped as a Docker image for amd64 and
 arm64. The interface and the e-mails are in Polish.
 
+**Live demo:** <https://cb-demo.futumore.pl/calendar>. Enter as a participant, an instructor or an administrator with
+the buttons at the top; the data is sample data and resets every night ([how it works](#demo-instance)).
+
 Ran in production from April to October 2026, the whole run of an EU-funded programme of free climbing classes that
 Fantastyczne Wspinanie, a climbing school running classes in several locations,
 held at the Skarpa climbing wall in Bytom: 670 registered accounts and 750+ bookings. It replaced sign-ups by e-mail
