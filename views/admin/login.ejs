@@ -55,7 +55,7 @@
             type="email"
             name="email"
             class="form-input"
-            placeholder="admin@example.com"
+            placeholder="<%= demoMode ? demoAccounts.admin : 'admin@example.com' %>"
             required
             autofocus
             autocomplete="email"

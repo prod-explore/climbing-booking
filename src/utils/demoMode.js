@@ -2,19 +2,22 @@
  * demoMode.js — the switch for the public demo instance (DEMO_MODE) and the fixed accounts it signs visitors in as.
  *
  * Demo mode is off unless DEMO_MODE=true. It is meant for a throw-away instance with sample data (see
- * services/demoData.js): no e-mail is sent, visitors enter as one of three accounts with a click, and the database is
- * reset every night. The accounts are fixed, so that the administrator can be added to the administrator list without
+ * services/demoData.js): no e-mail is sent, visitors enter as one of three accounts with a click (the sign-in is
+ * passwordless like the real one, only without the e-mail step), and the database is reset every night. The accounts are fixed, so that the administrator can be added to the administrator list without
  * the operator configuring it.
  */
 
 'use strict';
 
-/** The role a visitor can enter as -> the address of its account. Addresses on example.com cannot receive mail. */
+/** The role a visitor can enter as -> the address of its account. `.test` is a reserved TLD: nothing can be delivered there. */
 const DEMO_ACCOUNTS = Object.freeze({
-  participant: 'demo.uczestnik@example.com',
-  instructor: 'demo.instruktor@example.com',
-  admin: 'demo.admin@example.com'
+  participant: 'uczestnik@demo.test',
+  instructor: 'instruktor@demo.test',
+  admin: 'admin@demo.test'
 });
+
+/** The contact address the demo shows instead of the configured one, which may be a real mailbox. */
+const DEMO_CONTACT_EMAIL = 'kontakt@demo.test';
 
 /** Where each role lands after entering. */
 const DEMO_LANDING = Object.freeze({
@@ -39,4 +42,4 @@ function isDemoMode(env = process.env) {
   throw new Error(`FATAL: DEMO_MODE must be "true" or "false": ${env.DEMO_MODE}`);
 }
 
-module.exports = { DEMO_ACCOUNTS, DEMO_LANDING, DEMO_EMAIL_LOGIN_MESSAGE, isDemoMode };
+module.exports = { DEMO_ACCOUNTS, DEMO_CONTACT_EMAIL, DEMO_LANDING, DEMO_EMAIL_LOGIN_MESSAGE, isDemoMode };

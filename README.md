@@ -45,7 +45,7 @@ with `NODE_ENV=production` (a [demo instance](#demo-instance) is the exception).
   server prints it, login link included, to the terminal. Open the link and confirm.
 - The administrator is `admin@example.com` (from `ADMIN_EMAILS` in `.env`); sign in at
   <http://localhost:3000/admin/login>.
-- `anna.instruktor@example.com` is one of the sample instructors; after signing in, open
+- `anna.instruktor@demo.test` is one of the sample instructors; after signing in, open
   <http://localhost:3000/instructor>.
 
 `.env.example` documents every variable. If you change `PORT`, change `APP_URL` too: the links in the e-mails are
@@ -157,9 +157,15 @@ visitor enter as a participant, an instructor or an administrator with one click
 same session cookie as a login link, so everything behind it is the ordinary code). In this mode:
 
 - No e-mail is sent, whatever `RESEND_API_KEY` is; the login forms say so and point to the buttons.
-- The database is replaced with sample data at every start and every night at 03:00: classes this week and next,
-  bookings, a full class with a waiting list, and a parental consent waiting for approval.
-- The three accounts are fixed `example.com` addresses; the demo administrator needs no entry in `ADMIN_EMAILS`.
+- The database is replaced with sample data at every start and every night at 03:00. The timetable is generated
+  relative to the day of the reset, so the current and the next week are always full: about 24 classes a week across
+  five instructors, levels and sizes, filled to different degrees (some empty, some nearly full, a few full with a
+  waiting list), about 40 fictitious participants, two weeks of archived history, and a parental consent waiting for
+  approval. Names are made up; every address is on the reserved `demo.test` domain, which cannot receive mail.
+- The banner names the three fixed accounts: `uczestnik@demo.test` (a participant with upcoming and past bookings and a
+  place on a waiting list), `instruktor@demo.test` and `admin@demo.test`. Sign-in stays passwordless, only the e-mail
+  step is replaced by the buttons; the demo administrator needs no entry in `ADMIN_EMAILS`.
+- The contact address shown is always `kontakt@demo.test`, whatever `CONTACT_EMAIL` is.
 - Every response carries `X-Robots-Tag: noindex, nofollow`.
 
 With `DEMO_MODE` unset none of this exists: the route answers 404, and the reset and the production seed refuse to

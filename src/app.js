@@ -23,7 +23,7 @@ const siteSettings = require('./utils/siteSettings');
 const { startupMessage } = require('./utils/startupMessage');
 const { redactUrl } = require('./utils/redactUrl');
 const { assertStrongSecret } = require('./utils/secrets');
-const { isDemoMode } = require('./utils/demoMode');
+const { isDemoMode, DEMO_ACCOUNTS } = require('./utils/demoMode');
 const { resetDemoData, startNightlyReset, RESET_HOUR } = require('./services/demoData');
 
 // Fail at startup, not at the first e-mail, when the public URL is missing in production.
@@ -60,6 +60,7 @@ app.locals.baseUrl = BASE_URL;
 app.locals.canonicalUrl = `${BASE_URL}/`;
 app.locals.site = siteSettings.resolve({});
 app.locals.demoMode = DEMO_MODE;
+app.locals.demoAccounts = DEMO_MODE ? DEMO_ACCOUNTS : null;
 
 // A demo instance is not for search engines: its pages are sample data.
 if (DEMO_MODE) {

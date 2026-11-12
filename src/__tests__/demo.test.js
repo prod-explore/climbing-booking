@@ -126,6 +126,38 @@ describe('the public calendar', () => {
   });
 });
 
+describe('the sample data over HTTP', () => {
+  test('the next week\'s calendar is full of classes with different fill levels, and a full one', async () => {
+    const res = await request(app).get('/calendar?week=1');
+
+    expect(res.status).toBe(200);
+    for (const name of ['Poranny trening', 'Zajęcia rodzinne', 'Wieczorny bouldering', 'Joga i mobilność', 'Kurs wspinaczki z liną dla dorosłych']) {
+      expect(res.text).toContain(name);
+    }
+    expect((res.text.match(/class="kcal-ev[ "]/g) || []).length).toBeGreaterThanOrEqual(20);
+  });
+
+  test('the participant sees upcoming bookings, past ones and a waiting list', async () => {
+    const { agent } = await enterAs('participant');
+    const res = await agent.get('/dashboard');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toMatch(/Aktywne[\s\S]{0,200}custom-tab-count">[3-9]</);
+    expect(res.text).toMatch(/Przeszłe[\s\S]{0,200}custom-tab-count">[3-9]</);
+    expect(res.text).toContain('Trening techniki (komplet)');
+  });
+
+  test('the instructor sees a list of classes, the administrator a populated week and the archive', async () => {
+    const instructor = await enterAs('instructor');
+    const list = await instructor.agent.get('/instructor');
+    expect((list.text.match(/\/instructor\/classes\/\d+\/attendance/g) || []).length).toBeGreaterThanOrEqual(10);
+
+    const admin = await enterAs('admin');
+    expect((await admin.agent.get('/admin/calendar?week=1')).text).toContain('Wieczorny bouldering');
+    expect((await admin.agent.get('/admin/archive')).text).toContain('Wspinaczka dla początkujących');
+  });
+});
+
 describe('the banner', () => {
   test.each(['/', '/calendar', '/login', '/admin/login', '/terms', '/no-such-page'])('is on %s', async (path) => {
     const res = await request(app).get(path);
@@ -136,6 +168,14 @@ describe('the banner', () => {
     for (const [role, label] of [['participant', 'Uczestnik'], ['instructor', 'Instruktor'], ['admin', 'Administrator']]) {
       expect(res.text).toMatch(new RegExp(`name="role" value="${role}"[^>]*>${label}</button>`));
     }
+  });
+
+  test('names the three accounts, on a reserved domain', async () => {
+    const res = await request(app).get('/calendar');
+
+    for (const email of Object.values(DEMO_ACCOUNTS)) expect(res.text).toContain(`<code>${email}</code>`);
+    expect(res.text).toContain('kontakt@demo.test');
+    expect(res.text).not.toMatch(/@example\.com/);
   });
 
   test.each([['participant', '/dashboard'], ['instructor', '/instructor'], ['admin', '/admin']])(

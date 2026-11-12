@@ -4,7 +4,7 @@
  * It refuses to touch a database that already has classes, and never runs with NODE_ENV=production, except for a
  * demo instance (DEMO_MODE=true), where it adds the richer demo data (see src/services/demoData.js, which holds the
  * sample data and is shared with the demo instance's start-up and nightly reset).
- * Instructor accounts: anna, piotr and ola.instruktor@example.com (log in at /login, the link is printed).
+ * Instructor accounts: anna, piotr and ola.instruktor@demo.test (log in at /login, the link is printed).
  */
 
 'use strict';
