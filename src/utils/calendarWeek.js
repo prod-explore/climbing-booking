@@ -32,6 +32,16 @@ function inWeek(classes, { weekStart, weekEnd }) {
   });
 }
 
+/** The classes of a week as the calendar views take them: spots taken filled in, `isPast` set once a class has started. */
+function toCalendarEntries(classes, now = new Date()) {
+  return classes.map(c => ({
+    ...c,
+    adult_taken: c.adult_taken || 0,
+    child_taken: c.child_taken || 0,
+    isPast: new Date(c.start_time) <= now
+  }));
+}
+
 /** Grid hours: one hour before the earliest start to one hour after the latest end (8–21 for an empty week). */
 function computeGridHours(weekClasses) {
   if (!weekClasses || !weekClasses.length) return { START_HOUR: 8, END_HOUR: 21, SLOT_MIN: 30 };
@@ -50,4 +60,4 @@ function computeGridHours(weekClasses) {
   };
 }
 
-module.exports = { parseWeekOffset, getWeekBounds, inWeek, computeGridHours };
+module.exports = { parseWeekOffset, getWeekBounds, inWeek, toCalendarEntries, computeGridHours };

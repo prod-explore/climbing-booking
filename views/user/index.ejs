@@ -74,7 +74,7 @@
               cls.description || '' , class_type: cls.class_type, is_cancelled: cls.is_cancelled, max_spots:
               cls.max_spots, max_child_spots: cls.max_child_spots, duration_min: cls.duration_min || 60, color:
               cls.color || '#6366f1' , startMin, endMin, offsetMin, timeStr, endStr, adultLeft, childLeft, isFull:
-              adultLeft <=0, col: 0, totalCols: 1 }); }); /* Each class takes the first column whose last class has ended by its start. */
+              adultLeft <=0, isPast: cls.isPast, col: 0, totalCols: 1 }); }); /* Each class takes the first column whose last class has ended by its start. */
               dayEvents.forEach(events=> {
               events.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
 
@@ -141,7 +141,7 @@
                                         const leftPct = ev.col * colW;
                                         %>
                                         <div
-                                          class="kcal-ev <%= ev.isFull ? 'kcal-ev--full' : '' %> <%= ev.is_cancelled ? 'kcal-ev--cancelled' : '' %>"
+                                          class="kcal-ev <%= ev.isFull ? 'kcal-ev--full' : '' %> <%= ev.isPast ? 'kcal-ev--past' : '' %> <%= ev.is_cancelled ? 'kcal-ev--cancelled' : '' %>"
                                           <%- `style="top:calc(var(--hh) * ${topMult.toFixed(4)}); height:calc(var(--hh) * ${heightMult.toFixed(4)}); left:calc(${leftPct.toFixed(2)}% + 2px); width:calc(${colW.toFixed(2)}% - 4px); --ev-color:${ev.color};"` %> data-id="<%= ev.id %>" data-name="<%= ev.name %>"
                                           data-time="<%= ev.timeStr %> – <%= ev.endStr %>"
                                           data-instructor="<%= ev.instructor %>"
@@ -149,8 +149,9 @@
                                           data-description="<%= ev.description %>" data-adult-left="<%= ev.adultLeft %>"
                                           data-adult-max="<%= ev.max_spots %>" data-child-left="<%= ev.childLeft %>"
                                           data-child-max="<%= ev.max_child_spots %>" data-type="<%= ev.class_type %>"
-                                          data-cancelled="<%= ev.is_cancelled ? '1' : '0' %>" role="button" tabindex="0"
-                                          aria-label="<%= ev.name %>">
+                                          data-cancelled="<%= ev.is_cancelled ? '1' : '0' %>"
+                                          data-past="<%= ev.isPast ? '1' : '0' %>" role="button" tabindex="0"
+                                          aria-label="<%= ev.name %><%= ev.isPast ? ' (zakończone)' : '' %>">
                                           <span class="kcal-ev-name">
                                             <%= ev.name %>
                                           </span>
@@ -162,7 +163,9 @@
                                               <%= ev.instructor %>
                                             </span>
                                             <% } %>
-                                              <% if (ev.isFull) { %>
+                                              <% if (ev.isPast) { %>
+                                                <span class="kcal-ev-badge">Zakończone</span>
+                                                <% } else if (ev.isFull) { %>
                                                 <span class="kcal-ev-badge">Brak miejsc</span>
                                                 <% } else if (ev.is_cancelled) { %>
                                                   <span class="kcal-ev-badge">Odwołane</span>
@@ -283,6 +286,7 @@
         function openModal(el) {
           const d = el.dataset;
           const isCancelled = d.cancelled === '1';
+          const isPast = d.past === '1';
           const adultLeft = parseInt(d.adultLeft);
           const childLeft = parseInt(d.childLeft);
           const isFull = adultLeft <= 0;
@@ -333,7 +337,8 @@
           modalSpots.innerHTML = spots;
 
           let actions = '';
-          if (isCancelled) actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
+          if (isPast) actions = `<span class="badge badge--full">Zajęcia zakończone</span>`;
+          else if (isCancelled) actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
           else if (isFull) actions = isLoggedIn
             ? `<a href="/book/${d.id}" class="btn btn--outline btn--lg">📋 Sprawdź listę rezerwową →</a>`
             : `<span class="badge badge--full">Brak miejsc</span>`;

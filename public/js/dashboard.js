@@ -17,6 +17,7 @@ const isLoggedIn   = true; // the dashboard is only served to a logged-in user
 function openModal(el) {
   const d = el.dataset;
   const isCancelled = d.cancelled === '1';
+  const isPast      = d.past === '1';
   const adultLeft   = parseInt(d.adultLeft);
   const childLeft   = parseInt(d.childLeft);
   const isFull      = adultLeft <= 0;
@@ -69,7 +70,9 @@ function openModal(el) {
   modalSpots.innerHTML = spots;
 
   let actions;
-  if (isCancelled) {
+  if (isPast) {
+    actions = `<span class="badge badge--full">Zajęcia zakończone</span>`;
+  } else if (isCancelled) {
     actions = `<span class="badge badge--full">Zajęcia odwołane</span>`;
   } else if (isFull) {
     if (isLoggedIn) {

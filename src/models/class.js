@@ -51,6 +51,25 @@ const ClassModel = {
       ORDER BY c.start_time ASC
     `).all(localDateTime()),
 
+  /**
+   * The classes the calendars lay out: every one that is not cancelled or archived, so the days of the current week
+   * that are over still show their classes (archivePastWeek leaves them until the week ends). Past ones are marked by
+   * utils/calendarWeek.js.
+   */
+  getCalendar: () =>
+    getDb().prepare(`
+      SELECT c.*,
+        (SELECT COUNT(*) FROM participants p
+          JOIN bookings b ON p.booking_id = b.id
+          WHERE b.class_id = c.id AND p.age_category = 'adult') as adult_taken,
+        (SELECT COUNT(*) FROM participants p
+          JOIN bookings b ON p.booking_id = b.id
+          WHERE b.class_id = c.id AND p.age_category = 'child') as child_taken
+      FROM classes c
+      WHERE c.is_cancelled = 0 AND c.is_archived = 0
+      ORDER BY c.start_time ASC
+    `).all(),
+
   getById: (id) =>
     getDb().prepare(`
       SELECT c.*,

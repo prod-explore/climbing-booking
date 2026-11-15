@@ -233,6 +233,7 @@
                 startMin, endMin, offsetMin, timeStr, endStr,
                 adultLeft, childLeft,
                 isFull: adultLeft <= 0,
+                isPast: cls.isPast,
                 col: 0,
                 totalCols: 1
               });
@@ -319,7 +320,7 @@
                       const colW     = 100 / ev.totalCols;
                       const leftPct  = ev.col * colW;
                     %>
-                    <div class="kcal-ev <%= ev.isFull ? 'kcal-ev--full' : '' %> <%= ev.is_cancelled ? 'kcal-ev--cancelled' : '' %>"
+                    <div class="kcal-ev <%= ev.isFull ? 'kcal-ev--full' : '' %> <%= ev.isPast ? 'kcal-ev--past' : '' %> <%= ev.is_cancelled ? 'kcal-ev--cancelled' : '' %>"
                          style="
                            top:calc(var(--hh) * <%= topMult.toFixed(4) %>);
                            height:calc(var(--hh) * <%= heightMult.toFixed(4) %>);
@@ -339,14 +340,17 @@
                          data-child-max="<%= ev.max_child_spots %>"
                          data-type="<%= ev.class_type %>"
                          data-cancelled="<%= ev.is_cancelled ? '1' : '0' %>"
-                         role="button" tabindex="0" aria-label="<%= ev.name %>"
+                         data-past="<%= ev.isPast ? '1' : '0' %>"
+                         role="button" tabindex="0" aria-label="<%= ev.name %><%= ev.isPast ? ' (zakończone)' : '' %>"
                     >
                       <span class="kcal-ev-name"><%= ev.name %></span>
                       <span class="kcal-ev-time"><%= ev.timeStr %> – <%= ev.endStr %></span>
                       <% if (ev.instructor) { %>
                       <span class="kcal-ev-instr"><%= ev.instructor %></span>
                       <% } %>
-                      <% if (ev.isFull) { %>
+                      <% if (ev.isPast) { %>
+                      <span class="kcal-ev-badge">Zakończone</span>
+                      <% } else if (ev.isFull) { %>
                       <span class="kcal-ev-badge">Brak miejsc</span>
                       <% } else if (ev.is_cancelled) { %>
                       <span class="kcal-ev-badge">Odwołane</span>

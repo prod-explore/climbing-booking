@@ -12,7 +12,7 @@ const { requireAuth, requireProfile } = require('../middleware/auth');
 const { checkAndPromoteWaitingList } = require('../services/waitingList');
 const { apiLimiter } = require('../middleware/security');
 const { calculateAge } = require('../utils/age');
-const { parseWeekOffset, getWeekBounds, inWeek, computeGridHours } = require('../utils/calendarWeek');
+const { parseWeekOffset, getWeekBounds, inWeek, toCalendarEntries, computeGridHours } = require('../utils/calendarWeek');
 
 /** Booking stays open until the class starts: there is no "opens N days before" window. */
 function isBookingOpen(startTime) {
@@ -23,8 +23,7 @@ function isBookingOpen(startTime) {
 router.get('/', (req, res) => {
   const { weekStart, weekEnd } = getWeekBounds(0);
 
-  const weekClasses = inWeek(ClassModel.getUpcoming(), { weekStart, weekEnd })
-    .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
+  const weekClasses = toCalendarEntries(inWeek(ClassModel.getCalendar(), { weekStart, weekEnd }));
 
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(weekClasses);
 
@@ -40,8 +39,7 @@ router.get('/calendar', (req, res) => {
   const weekOffset = parseWeekOffset(req.query.week);
   const { weekStart, weekEnd } = getWeekBounds(weekOffset);
 
-  const weekClasses = inWeek(ClassModel.getUpcoming(), { weekStart, weekEnd })
-    .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
+  const weekClasses = toCalendarEntries(inWeek(ClassModel.getCalendar(), { weekStart, weekEnd }));
 
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(weekClasses);
 
@@ -92,16 +90,13 @@ router.get('/dashboard', requireAuth, requireProfile, (req, res) => {
 
   // The grid hours come from every class of the week, booked or not, so the grid spans the same hours as on the
   // home page.
-  const allWeekClasses = inWeek(allUpcoming, { weekStart, weekEnd });
+  const allWeekClasses = inWeek(ClassModel.getCalendar(), { weekStart, weekEnd });
   const { START_HOUR, END_HOUR, SLOT_MIN } = computeGridHours(allWeekClasses);
 
   // The calendar offers only the classes the user has not booked yet.
-  const weekClasses = allUpcoming
-    .filter(c => {
-      const st = new Date(c.start_time);
-      return st >= weekStart && st <= weekEnd && !userBookings.some(b => b.class_id === c.id);
-    })
-    .map(c => ({ ...c, adult_taken: c.adult_taken || 0, child_taken: c.child_taken || 0 }));
+  const weekClasses = toCalendarEntries(
+    allWeekClasses.filter(c => !userBookings.some(b => b.class_id === c.id))
+  );
 
   const userAge = calculateAge(req.user.birth_date);
   const isMinor = userAge !== null && userAge < 18;
